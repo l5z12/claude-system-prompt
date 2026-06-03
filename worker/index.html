@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude System Prompt Archive</title>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <h1>Claude System Prompt Archive</h1>
+      <span id="meta" class="meta"></span>
+    </div>
+    <div class="header-right">
+      <nav class="tabs" role="tablist">
+        <button data-tab="browse" class="active">Browse</button>
+        <button data-tab="search">Search</button>
+        <button data-tab="diff">Diff</button>
+      </nav>
+      <button id="disclaimer-open" class="hlink" type="button">Disclaimer</button>
+      <a class="gh" href="https://github.com/l5z12/claude-system-prompt" target="_blank" rel="noopener" title="View on GitHub" aria-label="View on GitHub">
+        <svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 012-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span>GitHub</span>
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Browse -->
+    <section id="tab-browse" class="tab">
+      <aside id="tree" class="sidebar" aria-label="Archive tree"></aside>
+      <div class="content">
+        <div id="browse-head" class="content-head hidden">
+          <button id="browse-back" class="ghost mobile-only" type="button" aria-label="Back to block list">‹ Blocks</button>
+          <span id="browse-path" class="path"></span>
+          <button id="browse-diff" class="ghost" title="Diff this block against another model">Diff this ▸</button>
+        </div>
+        <pre id="browse-body" class="block">Select a block from the tree.</pre>
+      </div>
+    </section>
+
+    <!-- Search -->
+    <section id="tab-search" class="tab hidden">
+      <div class="search-bar">
+        <input id="search-input" type="search" placeholder="Search all blocks (case-insensitive substring)…" autocomplete="off" />
+        <select id="search-surface">
+          <option value="">all surfaces</option>
+          <option value="code">code</option>
+          <option value="web">web</option>
+        </select>
+      </div>
+      <div id="search-status" class="status"></div>
+      <div id="search-results" class="results"></div>
+    </section>
+
+    <!-- Diff -->
+    <section id="tab-diff" class="tab hidden">
+      <div class="diff-bar">
+        <select id="diff-left" class="picker" aria-label="Left side"></select>
+        <button id="diff-swap" class="ghost" title="Swap sides">⇄</button>
+        <select id="diff-right" class="picker" aria-label="Right side"></select>
+      </div>
+      <div id="diff-status" class="status"></div>
+      <div id="diff-output" class="diff"></div>
+    </section>
+  </main>
+
+  <dialog id="disclaimer" class="modal">
+    <h2>Disclaimer</h2>
+    <p>
+      This is an <strong>unofficial, community-maintained archive</strong>. The prompts here were
+      captured and reconstructed from observed Claude sessions. They may be incomplete, paraphrased,
+      out of date, or differ from what Anthropic actually ships, and they vary by model, surface, and
+      over time. Treat them as a reference, not a source of truth.
+    </p>
+    <p>
+      Not affiliated with, endorsed by, or supported by Anthropic. &ldquo;Claude&rdquo; and related
+      names are trademarks of their respective owners. Provided &ldquo;as is&rdquo;, without warranty
+      of any kind, for research and educational purposes.
+    </p>
+    <form method="dialog" class="modal-actions">
+      <button class="ghost" value="ok">Got it</button>
+    </form>
+  </dialog>
+
+  <script type="module" src="/src/client/app.js"></script>
+</body>
+</html>

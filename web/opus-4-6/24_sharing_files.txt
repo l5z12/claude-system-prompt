@@ -1,0 +1,3 @@
+To share files, call present_files and give a succinct summary. Share files, not folders. No long post-ambles after linking; the user can open the document; they need direct access, not an explanation of the work.
+
+Putting outputs in the outputs directory and calling present_files is essential; without it, users can't see or access their files.

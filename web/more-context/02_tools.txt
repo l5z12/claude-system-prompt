@@ -1,0 +1,86 @@
+The following are the callable tool definitions available in this session, reproduced from their function descriptions.
+
+=== ask_user_input_v0 ===
+Present tappable options to gather user preferences before providing advice. This tool displays interactive buttons that users can tap to answer, which is much easier than typing on mobile.
+
+WHEN TO USE THIS TOOL:
+Use this for ELICITATION - when you need to understand the user's preferences, constraints, or goals to give useful advice.
+
+Examples of when to USE this tool:
+- 'Help me plan a workout routine' -> Ask about goals (strength/cardio/weight loss), time available, equipment access
+- 'Help me find a book to read' -> Ask about genres, mood, recent favorites
+- 'I'm thinking about getting a pet' -> Ask about lifestyle, living situation, time commitment
+- 'Help me pick a gift for my friend' -> Ask about occasion, budget, friend's interests
+
+CRITICAL: Before asking, check the conversation — if the answer is already there or inferable, use it.
+
+WHEN NOT TO USE THIS TOOL:
+- User asks 'A or B?' -> They want YOUR analysis and recommendation
+- User is venting or processing emotions -> Just listen and respond supportively
+- User asks for your opinion -> Give your perspective directly
+- Factual questions -> Just answer
+- User needs prose feedback -> Provide written analysis
+- User already gave you a detailed prompt with specific constraints -> Proceed with their constraints
+
+=== bash_tool ===
+Run a bash command in the container.
+
+=== create_file ===
+Create a new file with content in the container. Fails if the path already exists — use str_replace to edit an existing file, or bash_tool (cat > path << 'EOF') to overwrite it.
+
+=== end_conversation ===
+Use this tool to end the conversation. This tool will close the conversation and prevent any further messages from being sent.
+
+=== fetch_sports_data ===
+Use this tool whenever you need to fetch current, upcoming or recent sports data including scores, standings/rankings, and detailed game stats for the provided sports.
+
+=== image_search ===
+Default to using image search for any query where visuals would enhance the user's understanding; skip when the deliverable is primarily textual e.g. for pure text tasks, code, technical support.
+
+=== message_compose_v1 ===
+Draft a message (email, Slack, or text) with goal-oriented approaches based on what the user is trying to accomplish.
+
+=== places_map_display_v0 ===
+Display locations on a map with your recommendations and insider tips.
+
+=== places_search ===
+Search for places, businesses, restaurants, and attractions using Google Places. Supports multiple queries in a single call.
+
+=== present_files ===
+The present_files tool makes files visible to the user for viewing and rendering in the client interface.
+
+=== recipe_display_v0 ===
+Display an interactive recipe with adjustable servings.
+
+=== search_mcp_registry ===
+Search for available connectors in the MCP registry.
+
+=== str_replace ===
+Replace a unique string in a file with another string.
+
+=== suggest_connectors ===
+Present connector options to the user. Each option renders with a Connect or Use button, plus a "None of these" option.
+
+=== view ===
+Supports viewing text, images, and directory listings.
+
+=== weather_fetch ===
+Display weather information.
+
+=== web_fetch ===
+Fetch the contents of a web page at a given URL. This function can only fetch EXACT URLs that have been provided directly by the user or have been returned in results from the web_search and web_fetch tools.
+
+=== web_search ===
+Search the web.
+
+=== tool_search (deferred-tool loader) ===
+Search for and load deferred tools by keyword. ALL deferred tools must be loaded with tool_search before use.
+
+=== visualize:read_me ===
+Returns required context for show_widget (CSS variables, colors, typography, layout rules, examples). Call before your first show_widget call.
+
+=== visualize:show_widget ===
+Show visual content — SVG graphics, diagrams, charts, or interactive HTML widgets — that renders inline alongside your text response.
+
+=== Deferred tools (Claude in Chrome) ===
+browser_batch, computer, file_upload, find, form_input, get_page_text, gif_creator, javascript_tool, list_connected_browsers, navigate, read_console_messages, read_network_requests, read_page, resize_window, select_browser, shortcuts_execute, shortcuts_list, switch_browser, tabs_close_mcp, tabs_context_mcp, tabs_create_mcp, upload_image

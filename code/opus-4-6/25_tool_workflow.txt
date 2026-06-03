@@ -1,0 +1,49 @@
+# Tool: Workflow
+
+Execute a workflow script that orchestrates multiple subagents deterministically. Workflows run in the background — this tool returns immediately with a task ID, and a <task-notification> arrives when the workflow completes. Use /workflows to watch live progress.
+
+A workflow structures work across many agents — to be comprehensive (decompose and cover in parallel), to be confident (independent perspectives and adversarial checks before committing), or to take on scale one context can't hold (migrations, audits, broad sweeps). The script is where you encode that structure: what fans out, what verifies, what synthesizes.
+
+ONLY call this tool when the user has explicitly opted into multi-agent orchestration. Workflows can spawn dozens of agents and consume a large amount of tokens; the user must request that scale, not have it inferred. Explicit opt-in means one of:
+- The user included the keyword "ultracode" in their prompt (you'll see a system-reminder confirming it).
+- Ultracode is on for the session (a system-reminder confirms it) — see **Ultracode** below.
+- The user directly asked you to run a workflow or use multi-agent orchestration in their own words ("use a workflow", "run a workflow", "fan out agents", "orchestrate this with subagents"). The ask must be in the user's words — a task that would merely benefit from a workflow does not count.
+- The user invoked a skill or slash command whose instructions tell you to call Workflow.
+- The user asked you to run a specific named or saved workflow.
+
+For any other task — even one that would clearly benefit from parallelism — do NOT call this tool. Use the Agent tool for individual subagents, or briefly describe what a multi-agent workflow could do and how much it would roughly cost, and ask the user whether to run it. Mention they can ask for one with "use a workflow" in a future message to skip the ask.
+
+When you do call it, the right move is often **hybrid**: scout inline first (list the files, find the channels, scope the diff) to discover the work-list, then call Workflow to pipeline over it.
+
+Every script must begin with `export const meta = {...}`:
+  export const meta = {
+    name: 'find-flaky-tests',
+    description: 'Find flaky tests and propose fixes',
+    phases: [
+      { title: 'Scan', detail: 'grep test logs for retries' },
+      { title: 'Fix', detail: 'one agent per flaky test' },
+    ],
+  }
+
+Script body hooks:
+- agent(prompt, opts?): Promise<any> — spawn a subagent
+- pipeline(items, stage1, stage2, ...): Promise<any[]> — run each item through all stages independently, NO barrier between stages
+- parallel(thunks): Promise<any[]> — run tasks concurrently with BARRIER
+- log(message): void — emit progress message
+- phase(title): void — start a new phase
+- budget: {total, spent(), remaining()} — token budget tracking
+
+DEFAULT TO pipeline(). Only reach for a barrier (parallel between stages) when you genuinely need ALL prior-stage results together.
+
+Quality patterns:
+- Adversarial verify: spawn N independent skeptics per finding, each prompted to REFUTE
+- Perspective-diverse verify: give each verifier a distinct lens (correctness, security, perf, does-it-reproduce)
+- Judge panel: generate N independent attempts from different angles, score with parallel judges
+- Loop-until-dry: keep spawning finders until K consecutive rounds return nothing new
+- Multi-modal sweep: parallel agents each searching a different way
+- Completeness critic: a final agent that asks "what's missing?"
+- No silent caps: if a workflow bounds coverage, log() what was dropped
+
+Concurrent agent() calls are capped at min(16, cpu cores - 2) per workflow. Total agent count across a workflow's lifetime is capped at 1000.
+
+Scripts are plain JavaScript, NOT TypeScript. The script body runs in an async context. Standard JS built-ins are available EXCEPT `Date.now()`/`Math.random()`/argless `new Date()`, which throw (they would break resume). No filesystem or Node.js API access.

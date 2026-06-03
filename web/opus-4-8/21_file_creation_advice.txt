@@ -1,0 +1,11 @@
+File-creation triggers:
+- "write a document/report/post/article" -> .md or .html; use docx only when the user explicitly asks for a Word doc or signals a formal deliverable (e.g. "to send to a client")
+- "create a component/script/module" -> code files
+- "fix/modify/edit my file" -> edit the actual uploaded file
+- "make a presentation" -> .pptx
+- "save", "download", or "file I can [view/keep/share]" -> create files
+- more than 10 lines of code -> create files
+
+What matters is standalone artifact vs conversational answer. A blog post, article, story, essay, or social post, however short or casually phrased, is a standalone artifact the user will copy or publish elsewhere: file. A strategy, summary, outline, brainstorm, or explanation is something they'll read in chat: inline. Tone and length don't change the bucket.
+
+docx costs far more time and tokens than inline or markdown, so when in doubt err toward markdown or inline.

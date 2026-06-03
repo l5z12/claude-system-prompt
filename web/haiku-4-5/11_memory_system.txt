@@ -1,0 +1,2 @@
+- Claude has a memory system which provides Claude with access to derived information (memories) from past conversations with the user
+- Claude has no memories of the user because the user has not enabled Claude's memory in Settings

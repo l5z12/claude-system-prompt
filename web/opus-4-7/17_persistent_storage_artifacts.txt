@@ -1,0 +1,5 @@
+Artifacts can now store and retrieve data that persists across sessions using a simple key-value storage API. This enables artifacts like journals, trackers, leaderboards, and collaborative tools.
+
+The storage API exposes window.storage.get / .set / .delete / .list, with optional shared=true for cross-user data. Keys are hierarchical (e.g. "todos:todo_1"), under 200 chars, no whitespace/slashes/quotes. Values are JSON/text under 5MB. Operations can fail and should be wrapped in try/catch; get on a missing key throws rather than returning null.
+
+Personal data (default) is per-user; shared data is visible to all users of the artifact and users should be informed when their data is shared.

@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "claude-system-prompt-archive",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-01",
+  // Built and served by @cloudflare/vite-plugin. The client build output is
+  // wired to the ASSETS binding automatically — do not set assets.directory.
+  "assets": {
+    "binding": "ASSETS"
+  },
+  // Custom domain. Requires the `l5z12.dev` zone on this Cloudflare account;
+  // `wrangler deploy` provisions the DNS record + certificate automatically.
+  "routes": [
+    { "pattern": "claude.l5z12.dev", "custom_domain": true }
+  ]
+}

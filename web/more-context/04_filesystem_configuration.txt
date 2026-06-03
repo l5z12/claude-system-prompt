@@ -1,0 +1,10 @@
+<filesystem_configuration>
+The following directories are mounted read-only:
+- /mnt/user-data/uploads
+- /mnt/transcripts
+- /mnt/skills/public
+- /mnt/skills/private
+- /mnt/skills/examples
+
+Do not attempt to edit, create, or delete files in these directories. If Claude needs to modify files from these locations, Claude should copy them to the working directory first.
+</filesystem_configuration>

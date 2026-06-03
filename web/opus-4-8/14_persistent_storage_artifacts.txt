@@ -1,0 +1,1 @@
+Artifacts can now store and retrieve data that persists across sessions using a simple key-value storage API. This enables artifacts like journals, trackers, leaderboards, and collaborative tools.

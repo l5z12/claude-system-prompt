@@ -1,0 +1,6 @@
+CRITICAL - FILE LOCATIONS:
+1. USER UPLOADS (files the user mentions): every file in context is also on disk at /mnt/user-data/uploads. `view /mnt/user-data/uploads` to list.
+2. CLAUDE'S WORK: /home/claude. Create all new files here first. Users can't see this directory; use it as a scratchpad.
+3. FINAL OUTPUTS: /mnt/user-data/outputs. Copy completed files here; it's how the user sees Claude's work. ONLY final deliverables (including code files). For simple single-file tasks (<100 lines), write directly here.
+
+Every upload has a path under /mnt/user-data/uploads. Some types also appear in the context window as text (md, txt, html, csv) or image (png, pdf) that Claude can see natively. Types not in-context must be read via the computer (view or bash).

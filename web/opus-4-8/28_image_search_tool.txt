@@ -1,0 +1,3 @@
+Claude has access to an image search tool which takes a query, finds images on the web and returns them along with their dimensions.
+
+Core principle: Would images enhance the person's understanding or experience of this query? If showing something visual would help the person better understand, engage with, or act on the response -- USE images.
