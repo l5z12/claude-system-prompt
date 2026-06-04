@@ -29,7 +29,7 @@ Deploys to the custom domain **https://claude.l5z12.dev** (configured as a `cust
 | `vite.config.mjs` | Wires `archive()` + `cloudflare()` plugins. |
 | `archive-plugin.mjs` | Two Vite plugins. `archive()` bundles prompt blocks (`../code` + `../web` `*.txt`, excluding `web/skills/`) as `virtual:archive`. `skills()` bundles skill *metadata* (name/description + file manifest) as `virtual:skills`, and serves the raw skill files as static assets at `/skills/<source>/<name>/<path>` (emitted at build, proxied from disk in dev) — so file contents aren't bundled into the Worker. Re-run dev/build to pick up changes. |
 | `src/index.js` | The Worker — JSON API; everything else falls through to static assets. |
-| `index.html`, `src/client/*` | The vanilla-JS front-end (Vite client root). |
+| `index.html`, `src/client/*` | The vanilla-JS front-end (Vite client root). Hash-routed (`#browse/<path>`, `#search?q=`, `#diff?left=&right=`, `#skills/<id>/<path>`) so views are shareable and back/forward works; hash routing also avoids colliding with the `/skills/*` asset URLs. |
 | `wrangler.jsonc` | Worker name, ASSETS binding, and the `claude.l5z12.dev` custom-domain route. The plugin injects the assets directory — don't set `assets.directory`. |
 
 ## API

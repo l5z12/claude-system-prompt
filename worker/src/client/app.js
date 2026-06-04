@@ -5,7 +5,7 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const api = (path) => fetch(path).then((r) => r.json());
 const REPO = 'https://github.com/l5z12/claude-system-prompt';
-const ghPath = (p) => p.split('/').map(encodeURIComponent).join('/');
+const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
 
 let TREE = {};      // { surface: { model: [ {path,file,name,order} ] } }
 let FILES = [];     // flattened: { surface, model, path, file, name, order }
@@ -13,12 +13,42 @@ let SKILLS = [];    // [ {id, source, name, description, fileCount} ]
 let skillState = null; // open skill: { id, name, source, description, files, dir:[], file }
 let activePath = null;
 
-// ---------- tabs ----------
+// ---------- routing ----------
+// The URL hash is the source of truth: UI actions call setHash(), and router()
+// applies the resulting state. This gives shareable URLs + working back/forward.
+function setHash(h) {
+  const target = '#' + h;
+  if (location.hash === target) router();
+  else location.hash = target;
+}
+
+function router() {
+  const h = location.hash.slice(1).replace(/^\//, '');
+  const qIdx = h.indexOf('?');
+  const pathPart = qIdx === -1 ? h : h.slice(0, qIdx);
+  const params = new URLSearchParams(qIdx === -1 ? '' : h.slice(qIdx + 1));
+  const segs = pathPart.split('/').filter(Boolean).map(decodeURIComponent);
+  const tab = segs[0] || 'browse';
+  if (tab === 'search') applySearch(params.get('q') || '', params.get('surface') || '');
+  else if (tab === 'diff') applyDiff(params.get('left') || '', params.get('right') || '');
+  else if (tab === 'skills') applySkills(segs.slice(1));
+  else applyBrowse(segs.slice(1).join('/'));
+}
+
 function showTab(name) {
   for (const b of document.querySelectorAll('.tabs button')) b.classList.toggle('active', b.dataset.tab === name);
   for (const s of document.querySelectorAll('.tab')) s.classList.toggle('hidden', s.id !== 'tab-' + name);
 }
-for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('click', () => showTab(b.dataset.tab));
+
+// Tab buttons navigate to that tab, preserving its current selection/params.
+for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('click', () => setHash(tabHash(b.dataset.tab)));
+
+function tabHash(tab) {
+  if (tab === 'search') { const qs = searchQS(); return qs ? 'search?' + qs : 'search'; }
+  if (tab === 'diff') { const qs = diffQS(); return qs ? 'diff?' + qs : 'diff'; }
+  if (tab === 'skills') return skillState ? skillHash(skillState.id, skillState.file || skillState.dir.join('/')) : 'skills';
+  return activePath ? 'browse/' + encPath(activePath) : 'browse';
+}
 
 // ---------- init ----------
 (async function init() {
@@ -39,6 +69,8 @@ for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('c
   renderTree();
   fillPickers();
   renderSkillsList();
+  window.addEventListener('hashchange', router);
+  router();
 })();
 
 // ---------- browse ----------
@@ -61,7 +93,7 @@ function renderTree() {
         a.dataset.path = blk.path;
         const num = String(blk.order).padStart(2, '0');
         a.innerHTML = `<span><span class="num">${num}</span> ${esc(blk.name)}</span>`;
-        a.addEventListener('click', () => openBlock(blk.path));
+        a.addEventListener('click', () => setHash('browse/' + encPath(blk.path)));
         det.appendChild(a);
       }
       sg.appendChild(det);
@@ -70,23 +102,35 @@ function renderTree() {
   }
 }
 
-async function openBlock(path) {
+function applyBrowse(path) {
   showTab('browse');
-  $('#tab-browse').classList.add('viewing'); // mobile: show detail, hide tree
+  if (!path) {
+    activePath = null;
+    $('#tab-browse').classList.remove('viewing');
+    for (const el of document.querySelectorAll('.block-link')) el.classList.remove('active');
+    $('#browse-head').classList.add('hidden');
+    $('#browse-body').textContent = 'Select a block from the tree.';
+    return;
+  }
+  loadBlock(path);
+}
+
+async function loadBlock(path) {
+  $('#tab-browse').classList.add('viewing'); // mobile: show detail
   activePath = path;
   for (const el of document.querySelectorAll('.block-link')) el.classList.toggle('active', el.dataset.path === path);
-  // make sure its <details> is open
   const link = document.querySelector(`.block-link[data-path="${cssEscape(path)}"]`);
   if (link && link.closest('details')) link.closest('details').open = true;
-  const f = await api('/api/file?path=' + encodeURIComponent(path));
   $('#browse-head').classList.remove('hidden');
   $('#browse-path').textContent = path;
   $('#browse-raw').href = '/raw?path=' + encodeURIComponent(path);
-  $('#browse-gh').href = `${REPO}/blob/HEAD/${ghPath(path)}`;
-  $('#browse-body').textContent = f.content;
+  $('#browse-gh').href = `${REPO}/blob/HEAD/${encPath(path)}`;
+  $('#browse-body').textContent = 'loading…';
+  const f = await api('/api/file?path=' + encodeURIComponent(path));
+  $('#browse-body').textContent = f.error ? '(block not found)' : f.content;
 }
 
-$('#browse-back').addEventListener('click', () => $('#tab-browse').classList.remove('viewing'));
+$('#browse-back').addEventListener('click', () => setHash('browse'));
 
 $('#browse-diff').addEventListener('click', () => {
   if (!activePath) return;
@@ -94,19 +138,39 @@ $('#browse-diff').addEventListener('click', () => {
   if (!cur) return;
   // prefer a sibling: same surface + same block name, different path
   const sib = FILES.find((f) => f.surface === cur.surface && f.name === cur.name && f.path !== cur.path);
-  $('#diff-left').value = cur.path;
-  if (sib) $('#diff-right').value = sib.path;
-  showTab('diff');
-  runDiff();
+  setHash('diff?' + new URLSearchParams({ left: cur.path, right: sib ? sib.path : cur.path }).toString());
 });
 
 // ---------- search ----------
 let searchTimer = null;
 $('#search-input').addEventListener('input', () => {
   clearTimeout(searchTimer);
-  searchTimer = setTimeout(runSearch, 180);
+  searchTimer = setTimeout(syncSearch, 180);
 });
-$('#search-surface').addEventListener('change', runSearch);
+$('#search-surface').addEventListener('change', syncSearch);
+
+function searchQS() {
+  const qs = new URLSearchParams();
+  const q = $('#search-input').value.trim();
+  const surface = $('#search-surface').value;
+  if (q) qs.set('q', q);
+  if (surface) qs.set('surface', surface);
+  return qs.toString();
+}
+
+// Keystrokes update the URL in place (no history spam) and run the search.
+function syncSearch() {
+  runSearch();
+  const qs = searchQS();
+  history.replaceState(null, '', '#search' + (qs ? '?' + qs : ''));
+}
+
+function applySearch(q, surface) {
+  showTab('search');
+  $('#search-input').value = q;
+  $('#search-surface').value = surface || '';
+  runSearch();
+}
 
 async function runSearch() {
   const q = $('#search-input').value.trim();
@@ -128,7 +192,7 @@ async function runSearch() {
       .join('');
     const more = r.hitCount > r.hits.length ? `<div class="hitline"><span class="ln"></span><span class="rc">…${r.hitCount - r.hits.length} more</span></div>` : '';
     div.innerHTML = `<div class="result-head"><span class="rp">${esc(r.path)}</span><span class="rc">${r.hitCount}×</span></div>${lines}${more}`;
-    div.querySelector('.result-head').addEventListener('click', () => openBlock(r.path));
+    div.querySelector('.result-head').addEventListener('click', () => setHash('browse/' + encPath(r.path)));
     out.appendChild(div);
   }
 }
@@ -145,14 +209,33 @@ function fillPickers() {
     const sib = FILES.find((f) => f.surface === left.surface && f.name === left.name && f.path !== left.path) || FILES[1];
     $('#diff-right').value = sib.path;
   }
-  $('#diff-left').addEventListener('change', runDiff);
-  $('#diff-right').addEventListener('change', runDiff);
+  $('#diff-left').addEventListener('change', syncDiff);
+  $('#diff-right').addEventListener('change', syncDiff);
   $('#diff-swap').addEventListener('click', () => {
     const l = $('#diff-left').value;
     $('#diff-left').value = $('#diff-right').value;
     $('#diff-right').value = l;
-    runDiff();
+    syncDiff();
   });
+}
+
+function diffQS() {
+  const left = $('#diff-left').value;
+  const right = $('#diff-right').value;
+  if (!left || !right) return '';
+  return new URLSearchParams({ left, right }).toString();
+}
+
+function syncDiff() {
+  const qs = diffQS();
+  setHash(qs ? 'diff?' + qs : 'diff');
+}
+
+function applyDiff(left, right) {
+  showTab('diff');
+  if (left) $('#diff-left').value = left;
+  if (right) $('#diff-right').value = right;
+  runDiff();
 }
 
 function optionsHtml() {
@@ -193,7 +276,7 @@ function renderRow(op) {
   const cls = op.t === '+' ? 'add' : op.t === '-' ? 'del' : 'ctx';
   const sign = op.t === ' ' ? '' : op.t;
   const gut = `<span class="gut"><span class="n">${op.a ?? ''}</span><span class="n">${op.b ?? ''}</span></span>`;
-  return `<div class="drow ${cls}">${gut}<span class="sign">${sign}</span><span class="txt">${esc(op.text) || ' '}</span></div>`;
+  return `<div class="drow ${cls}">${gut}<span class="sign">${sign}</span><span class="txt">${esc(op.text) || ' '}</span></div>`;
 }
 
 // CSS.escape fallback for attribute selectors with special chars (e.g. [1m]).
@@ -203,7 +286,11 @@ function cssEscape(s) {
 
 // ---------- skills ----------
 $('#skill-filter').addEventListener('input', renderSkillsList);
-$('#skill-back').addEventListener('click', () => $('#tab-skills').classList.remove('viewing'));
+$('#skill-back').addEventListener('click', () => setHash('skills'));
+
+function skillHash(id, sub) {
+  return 'skills/' + encPath(id) + (sub ? '/' + encPath(sub) : '');
+}
 
 function renderSkillsList() {
   const q = $('#skill-filter').value.trim().toLowerCase();
@@ -222,7 +309,7 @@ function renderSkillsList() {
       it.className = 'skill-link';
       it.dataset.id = s.id;
       it.innerHTML = `<div class="sk-name">${esc(s.name)}</div><div class="sk-desc">${esc(s.description)}</div>`;
-      it.addEventListener('click', () => openSkill(s.id));
+      it.addEventListener('click', () => setHash(skillHash(s.id, '')));
       g.appendChild(it);
     }
     root.appendChild(g);
@@ -230,16 +317,39 @@ function renderSkillsList() {
   if (!root.children.length) root.innerHTML = '<div class="status">No skills match.</div>';
 }
 
-async function openSkill(id) {
+async function applySkills(rest) {
   showTab('skills');
-  $('#tab-skills').classList.add('viewing'); // mobile: show detail
-  for (const el of document.querySelectorAll('.skill-link')) el.classList.toggle('active', el.dataset.id === id);
-  const s = await api('/api/skill?id=' + encodeURIComponent(id));
-  if (s.error) return;
+  if (rest.length < 2) {
+    skillState = null;
+    $('#tab-skills').classList.remove('viewing');
+    $('#skill-head').classList.add('hidden');
+    $('#skill-detail').innerHTML = '<p class="empty">Select a skill from the list.</p>';
+    for (const el of document.querySelectorAll('.skill-link')) el.classList.remove('active');
+    return;
+  }
+  const id = rest[0] + '/' + rest[1];
+  const subPath = rest.slice(2).join('/');
+  if (!skillState || skillState.id !== id) {
+    const s = await api('/api/skill?id=' + encodeURIComponent(id));
+    if (s.error) {
+      $('#skill-head').classList.add('hidden');
+      $('#skill-detail').innerHTML = '<p class="empty">Skill not found.</p>';
+      return;
+    }
+    skillState = { ...s, dir: [], file: null };
+  }
+  $('#tab-skills').classList.add('viewing');
   $('#skill-head').classList.remove('hidden');
-  $('#skill-title').textContent = s.name;
-  $('#skill-source').textContent = s.source;
-  skillState = { ...s, dir: [], file: null };
+  $('#skill-title').textContent = skillState.name;
+  $('#skill-source').textContent = skillState.source;
+  for (const el of document.querySelectorAll('.skill-link')) el.classList.toggle('active', el.dataset.id === id);
+  if (subPath && skillState.files.some((f) => f.path === subPath)) {
+    skillState.file = subPath;
+    skillState.dir = subPath.split('/').slice(0, -1);
+  } else {
+    skillState.file = null;
+    skillState.dir = subPath ? subPath.split('/') : [];
+  }
   renderSkill();
 }
 
@@ -249,7 +359,7 @@ function renderSkill() {
   // GitHub + Raw links track the current location (file = blob/raw, dir = tree)
   const sub = s.file || s.dir.join('/');
   const repoPath = 'web/skills/' + s.id + (sub ? '/' + sub : '');
-  $('#skill-gh').href = `${REPO}/${s.file ? 'blob' : 'tree'}/HEAD/${ghPath(repoPath)}`;
+  $('#skill-gh').href = `${REPO}/${s.file ? 'blob' : 'tree'}/HEAD/${encPath(repoPath)}`;
   const readmeFile = s.files.find((f) => f.path.toLowerCase() === 'skill.md');
   const rawEl = $('#skill-raw');
   // Raw targets the open file, or SKILL.md when showing the skill's README.
@@ -273,9 +383,8 @@ function renderSkill() {
 
   detail.querySelectorAll('.crumb').forEach((el) =>
     el.addEventListener('click', () => {
-      skillState.dir = skillState.dir.slice(0, +el.dataset.depth);
-      skillState.file = null;
-      renderSkill();
+      const dirPath = skillState.dir.slice(0, +el.dataset.depth).join('/');
+      setHash(skillHash(skillState.id, dirPath));
     })
   );
   if (s.file) {
@@ -284,9 +393,8 @@ function renderSkill() {
   }
   detail.querySelectorAll('.entry').forEach((el) =>
     el.addEventListener('click', () => {
-      if (el.dataset.dir) skillState.dir = skillState.dir.concat(el.dataset.dir);
-      else skillState.file = el.dataset.file;
-      renderSkill();
+      const target = el.dataset.dir ? skillState.dir.concat(el.dataset.dir).join('/') : el.dataset.file;
+      setHash(skillHash(skillState.id, target));
     })
   );
   if (!s.dir.length && readmeFile) loadReadme(readmeFile.path);
