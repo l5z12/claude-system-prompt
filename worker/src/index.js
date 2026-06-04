@@ -5,9 +5,13 @@
 //   GET /api/diff?left=...&right=...        -> line diff between two blocks
 // Anything else falls through to the static assets in ./public.
 import archive from 'virtual:archive';
+import skillsData from 'virtual:skills';
 
 const FILES = archive.files;
 const BY_PATH = new Map(FILES.map((f) => [f.path, f]));
+
+const SKILLS = skillsData.skills;
+const SKILL_BY_ID = new Map(SKILLS.map((s) => [s.id, s]));
 
 const TREE = (() => {
   const t = {};
@@ -74,6 +78,11 @@ export default {
     const url = new URL(request.url);
     const p = url.pathname;
 
+    if (p === '/raw') {
+      const f = BY_PATH.get(url.searchParams.get('path') || '');
+      if (!f) return new Response('not found', { status: 404 });
+      return new Response(f.content, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+    }
     if (p === '/api/tree') {
       return json({ generatedAt: archive.generatedAt, count: FILES.length, tree: TREE });
     }
@@ -92,6 +101,17 @@ export default {
       if (!left || !right) return json({ error: 'left and right must both be valid paths' }, 400);
       const { ops, add, del } = diffLines(left.content.split('\n'), right.content.split('\n'));
       return json({ left: left.path, right: right.path, add, del, same: left.content === right.content, ops });
+    }
+    if (p === '/api/skills') {
+      return json({
+        generatedAt: skillsData.generatedAt,
+        count: SKILLS.length,
+        skills: SKILLS.map((s) => ({ id: s.id, source: s.source, name: s.name, description: s.description, fileCount: s.files.length })),
+      });
+    }
+    if (p === '/api/skill') {
+      const s = SKILL_BY_ID.get(url.searchParams.get('id') || '');
+      return s ? json(s) : json({ error: 'skill not found' }, 404);
     }
     if (p.startsWith('/api/')) return json({ error: 'unknown endpoint' }, 404);
 

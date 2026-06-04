@@ -1,11 +1,16 @@
 import './style.css';
+import { marked } from 'marked';
 
 const $ = (sel) => document.querySelector(sel);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const api = (path) => fetch(path).then((r) => r.json());
+const REPO = 'https://github.com/l5z12/claude-system-prompt';
+const ghPath = (p) => p.split('/').map(encodeURIComponent).join('/');
 
 let TREE = {};      // { surface: { model: [ {path,file,name,order} ] } }
 let FILES = [];     // flattened: { surface, model, path, file, name, order }
+let SKILLS = [];    // [ {id, source, name, description, fileCount} ]
+let skillState = null; // open skill: { id, name, source, description, files, dir:[], file }
 let activePath = null;
 
 // ---------- tabs ----------
@@ -17,7 +22,10 @@ for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('c
 
 // ---------- init ----------
 (async function init() {
-  const data = await api('/api/tree');
+  const [data, sk] = await Promise.all([
+    api('/api/tree'),
+    api('/api/skills').catch(() => ({ skills: [] })),
+  ]);
   TREE = data.tree;
   FILES = [];
   for (const surface of Object.keys(TREE)) {
@@ -25,10 +33,12 @@ for (const b of document.querySelectorAll('.tabs button')) b.addEventListener('c
       for (const blk of TREE[surface][model]) FILES.push({ surface, model, ...blk });
     }
   }
+  SKILLS = sk.skills || [];
   const when = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : '';
-  $('#meta').textContent = `${data.count} blocks · built ${when}`;
+  $('#meta').textContent = `${data.count} blocks · ${SKILLS.length} skills · built ${when}`;
   renderTree();
   fillPickers();
+  renderSkillsList();
 })();
 
 // ---------- browse ----------
@@ -71,6 +81,8 @@ async function openBlock(path) {
   const f = await api('/api/file?path=' + encodeURIComponent(path));
   $('#browse-head').classList.remove('hidden');
   $('#browse-path').textContent = path;
+  $('#browse-raw').href = '/raw?path=' + encodeURIComponent(path);
+  $('#browse-gh').href = `${REPO}/blob/HEAD/${ghPath(path)}`;
   $('#browse-body').textContent = f.content;
 }
 
@@ -187,6 +199,165 @@ function renderRow(op) {
 // CSS.escape fallback for attribute selectors with special chars (e.g. [1m]).
 function cssEscape(s) {
   return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/["\\\]\[]/g, '\\$&');
+}
+
+// ---------- skills ----------
+$('#skill-filter').addEventListener('input', renderSkillsList);
+$('#skill-back').addEventListener('click', () => $('#tab-skills').classList.remove('viewing'));
+
+function renderSkillsList() {
+  const q = $('#skill-filter').value.trim().toLowerCase();
+  const root = $('#skills-list');
+  root.innerHTML = '';
+  for (const source of ['public', 'examples']) {
+    const list = SKILLS.filter(
+      (s) => s.source === source && (!q || s.name.toLowerCase().includes(q) || s.description.toLowerCase().includes(q))
+    );
+    if (!list.length) continue;
+    const g = document.createElement('div');
+    g.className = 'surface-group';
+    g.innerHTML = `<div class="group-label">${esc(source)} · ${list.length}</div>`;
+    for (const s of list) {
+      const it = document.createElement('div');
+      it.className = 'skill-link';
+      it.dataset.id = s.id;
+      it.innerHTML = `<div class="sk-name">${esc(s.name)}</div><div class="sk-desc">${esc(s.description)}</div>`;
+      it.addEventListener('click', () => openSkill(s.id));
+      g.appendChild(it);
+    }
+    root.appendChild(g);
+  }
+  if (!root.children.length) root.innerHTML = '<div class="status">No skills match.</div>';
+}
+
+async function openSkill(id) {
+  showTab('skills');
+  $('#tab-skills').classList.add('viewing'); // mobile: show detail
+  for (const el of document.querySelectorAll('.skill-link')) el.classList.toggle('active', el.dataset.id === id);
+  const s = await api('/api/skill?id=' + encodeURIComponent(id));
+  if (s.error) return;
+  $('#skill-head').classList.remove('hidden');
+  $('#skill-title').textContent = s.name;
+  $('#skill-source').textContent = s.source;
+  skillState = { ...s, dir: [], file: null };
+  renderSkill();
+}
+
+function renderSkill() {
+  const s = skillState;
+  const detail = $('#skill-detail');
+  // GitHub + Raw links track the current location (file = blob/raw, dir = tree)
+  const sub = s.file || s.dir.join('/');
+  const repoPath = 'web/skills/' + s.id + (sub ? '/' + sub : '');
+  $('#skill-gh').href = `${REPO}/${s.file ? 'blob' : 'tree'}/HEAD/${ghPath(repoPath)}`;
+  const readmeFile = s.files.find((f) => f.path.toLowerCase() === 'skill.md');
+  const rawEl = $('#skill-raw');
+  // Raw targets the open file, or SKILL.md when showing the skill's README.
+  const rawPath = s.file || (!s.dir.length && readmeFile ? readmeFile.path : null);
+  if (rawPath) {
+    rawEl.href = skillFileUrl(rawPath);
+    rawEl.classList.remove('hidden');
+  } else {
+    rawEl.classList.add('hidden');
+  }
+  const crumbs = [`<span class="crumb" data-depth="0">${esc(s.name)}</span>`];
+  s.dir.forEach((seg, i) => crumbs.push(`<span class="crumb" data-depth="${i + 1}">${esc(seg)}</span>`));
+  if (s.file) crumbs.push(`<span class="crumb-file">${esc(s.file.split('/').pop())}</span>`);
+  const breadcrumb = `<div class="crumbs">${crumbs.join('<span class="sep">/</span>')}</div>`;
+  const body = s.file ? '<div class="file-view" id="file-view">loading…</div>' : renderDirListing(s);
+  const meta =
+    (s.description ? `<p class="skill-desc">${esc(s.description)}</p>` : '') +
+    (s.license ? `<p class="skill-license">License — ${esc(s.license)}</p>` : '');
+  detail.innerHTML = meta + breadcrumb + body;
+  detail.scrollTop = 0;
+
+  detail.querySelectorAll('.crumb').forEach((el) =>
+    el.addEventListener('click', () => {
+      skillState.dir = skillState.dir.slice(0, +el.dataset.depth);
+      skillState.file = null;
+      renderSkill();
+    })
+  );
+  if (s.file) {
+    loadFile(s.file);
+    return;
+  }
+  detail.querySelectorAll('.entry').forEach((el) =>
+    el.addEventListener('click', () => {
+      if (el.dataset.dir) skillState.dir = skillState.dir.concat(el.dataset.dir);
+      else skillState.file = el.dataset.file;
+      renderSkill();
+    })
+  );
+  if (!s.dir.length && readmeFile) loadReadme(readmeFile.path);
+}
+
+function renderDirListing(s) {
+  const prefix = s.dir.length ? s.dir.join('/') + '/' : '';
+  const dirs = new Set();
+  const files = [];
+  for (const f of s.files) {
+    if (!f.path.startsWith(prefix)) continue;
+    const rest = f.path.slice(prefix.length);
+    const slash = rest.indexOf('/');
+    if (slash === -1) files.push({ name: rest, path: f.path, size: f.size });
+    else dirs.add(rest.slice(0, slash));
+  }
+  const di = [...dirs]
+    .sort()
+    .map((d) => `<div class="entry" data-dir="${esc(d)}"><span class="ic ic-dir"></span><span class="en">${esc(d)}/</span></div>`)
+    .join('');
+  const fi = files
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((f) => `<div class="entry" data-file="${esc(f.path)}"><span class="ic ic-file"></span><span class="en">${esc(f.name)}</span><span class="sz">${fmtSize(f.size)}</span></div>`)
+    .join('');
+  const readme = s.dir.length ? '' : '<div class="readme markdown" id="readme"></div>';
+  return `<div class="explorer">${di}${fi}</div>${readme}`;
+}
+
+function skillFileUrl(path) {
+  return '/skills/' + skillState.id + '/' + path.split('/').map(encodeURIComponent).join('/');
+}
+
+// Remove a leading YAML frontmatter block so it isn't rendered as markdown.
+function stripFrontmatter(md) {
+  const m = md.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return m ? md.slice(m[0].length) : md;
+}
+
+async function loadReadme(path) {
+  const el = document.getElementById('readme');
+  if (!el) return;
+  try {
+    const txt = await fetch(skillFileUrl(path)).then((r) => r.text());
+    el.innerHTML = `<div class="readme-head">${esc(path)}</div>` + marked.parse(stripFrontmatter(txt));
+  } catch {
+    el.remove();
+  }
+}
+
+async function loadFile(path) {
+  const el = document.getElementById('file-view');
+  if (!el) return;
+  const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase();
+  const BIN = new Set(['ttf', 'otf', 'woff', 'woff2', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'zip', 'gz', 'skill']);
+  const url = skillFileUrl(path);
+  if (BIN.has(ext)) {
+    el.innerHTML = `<div class="binnote">Binary file (.${esc(ext)}). <a href="${url}" target="_blank" rel="noopener">Open / download ↗</a></div>`;
+    return;
+  }
+  try {
+    const txt = await fetch(url).then((r) => r.text());
+    el.innerHTML = ext === 'md' ? `<div class="markdown">${marked.parse(stripFrontmatter(txt))}</div>` : `<pre class="skill-md">${esc(txt)}</pre>`;
+  } catch {
+    el.innerHTML = '<div class="binnote">Could not load file.</div>';
+  }
+}
+
+function fmtSize(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+  return (n / 1024 / 1024).toFixed(1) + ' MB';
 }
 
 // ---------- disclaimer ----------

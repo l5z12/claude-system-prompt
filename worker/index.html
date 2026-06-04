@@ -16,6 +16,7 @@
         <button data-tab="browse" class="active">Browse</button>
         <button data-tab="search">Search</button>
         <button data-tab="diff">Diff</button>
+        <button data-tab="skills">Skills</button>
       </nav>
       <button id="disclaimer-open" class="hlink" type="button">Disclaimer</button>
       <a class="gh" href="https://github.com/l5z12/claude-system-prompt" target="_blank" rel="noopener" title="View on GitHub" aria-label="View on GitHub">
@@ -27,13 +28,17 @@
 
   <main>
     <!-- Browse -->
-    <section id="tab-browse" class="tab">
+    <section id="tab-browse" class="tab pane">
       <aside id="tree" class="sidebar" aria-label="Archive tree"></aside>
       <div class="content">
         <div id="browse-head" class="content-head hidden">
           <button id="browse-back" class="ghost mobile-only" type="button" aria-label="Back to block list">‹ Blocks</button>
           <span id="browse-path" class="path"></span>
-          <button id="browse-diff" class="ghost" title="Diff this block against another model">Diff this ▸</button>
+          <div class="head-actions">
+            <a id="browse-raw" class="ghost" target="_blank" rel="noopener">Raw</a>
+            <a id="browse-gh" class="ghost" target="_blank" rel="noopener">GitHub</a>
+            <button id="browse-diff" class="ghost" title="Diff this block against another model">Diff this ▸</button>
+          </div>
         </div>
         <pre id="browse-body" class="block">Select a block from the tree.</pre>
       </div>
@@ -62,6 +67,28 @@
       </div>
       <div id="diff-status" class="status"></div>
       <div id="diff-output" class="diff"></div>
+    </section>
+
+    <!-- Skills -->
+    <section id="tab-skills" class="tab pane hidden">
+      <aside class="sidebar" aria-label="Skills list">
+        <input id="skill-filter" type="search" class="filter" placeholder="Filter skills…" autocomplete="off" />
+        <div id="skills-list"></div>
+      </aside>
+      <div class="content">
+        <div id="skill-head" class="content-head hidden">
+          <button id="skill-back" class="ghost mobile-only" type="button" aria-label="Back to skills list">‹ Skills</button>
+          <span id="skill-title" class="path"></span>
+          <span id="skill-source" class="badge"></span>
+          <div class="head-actions">
+            <a id="skill-raw" class="ghost hidden" target="_blank" rel="noopener">Raw</a>
+            <a id="skill-gh" class="ghost" target="_blank" rel="noopener">GitHub</a>
+          </div>
+        </div>
+        <div id="skill-detail" class="skill-detail">
+          <p class="empty">Select a skill from the list.</p>
+        </div>
+      </div>
     </section>
   </main>
 

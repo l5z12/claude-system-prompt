@@ -21,13 +21,14 @@ web/    claude.ai (web / desktop / mobile chat) system prompts
   opus-4-8/
   sonnet-4-6/
   more-context/   (shared tools / skills / session layer — not a model)
+  skills/         (Agent Skill bundles — examples/ and public/, each a SKILL.md + assets)
 ```
 
 Each model folder contains numbered `.txt` files in the order the blocks appear in the system prompt. Filenames name the block (e.g. `03_harness.txt`, `09_memory_system.txt`). Concatenating the files in order reconstructs the prompt.
 
 ## Viewer
 
-`worker/` is a Cloudflare Worker (Vite + `@cloudflare/vite-plugin`) that lets you browse, search, and diff the archive in a browser — the whole archive is bundled into the Worker at build time. Live at **https://claude.l5z12.dev**. From `worker/`: `bun install`, then `bun run dev` to preview locally or `bun run deploy` to ship it. See `worker/README.md`.
+`worker/` is a Cloudflare Worker (Vite + `@cloudflare/vite-plugin`) that lets you browse, search, and diff the prompt blocks and browse the `web/skills/` bundles — all content is bundled into the Worker at build time. Live at **https://claude.l5z12.dev**. From `worker/`: `bun install`, then `bun run dev` to preview locally or `bun run deploy` to ship it. See `worker/README.md`.
 
 ## Notes
 
@@ -35,4 +36,5 @@ Each model folder contains numbered `.txt` files in the order the blocks appear 
 - Within a surface, block names are kept consistent across model versions where possible, so `diff code/opus-4-7/03_harness.txt code/opus-4-8/03_harness.txt` shows how that section evolved.
 - Environment blocks (`code/*/10_environment.txt`, etc.) contain the runtime context as captured at the time of extraction (working directory, OS, model ID) — those will differ even for the same model on a different machine.
 - `web/more-context/` is not a model folder. It holds the shared, largely model-independent layer of the claude.ai prompt that's injected at runtime rather than written into any single model's persona: the available-skills catalog (`01`), callable tool definitions (`02`), network and filesystem config (`03`–`04`), search / image-search / citation instructions (`05`–`07`), the Anthropic-API-in-artifacts guide (`08`), session context (`09`), and the end-conversation note (`10`). It's captured once instead of duplicated under each web model, so the session-specific bits in `09_session_context.txt` (location, date, connected MCP servers) reflect that single capture.
+- `web/skills/` is not part of the numbered prompt-block archive — it holds Anthropic's Agent Skill bundles (`examples/` and `public/`), each a folder with a `SKILL.md` (name + description frontmatter), `LICENSE.txt`, templates/assets, and a packaged `<name>.skill` zip. The viewer surfaces these in a separate **Skills** tab and excludes them from the prompt Browse/Search/Diff.
 - `code/opus-4-8[1m]/` is the 1M-context variant of opus-4-8. The genuine `[1m]`-specific differences from `code/opus-4-8/` are two lines: the model line in `09_environment.txt` (`Opus 4.8 (1M context)` / `claude-opus-4-8[1m]`) and the git co-author line in `14_tool_bash.txt` (`Claude Opus 4.8 (1M context)`). `12_injected_runtime_context.txt` also differs, but only by capture date — not a model difference. `diff -r code/opus-4-8 'code/opus-4-8[1m]'` shows exactly those three blocks.
