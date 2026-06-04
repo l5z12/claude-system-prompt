@@ -201,16 +201,18 @@ Valid formats discovered:
 
 The JWT's `filesystem_id` claim must match the `filesystem_id` in the request. Cross-session access is not possible with a session-scoped JWT.
 
-## gRPC Interface
+## RPC Interface (Connect, not plain gRPC)
 
-The filestore also exposes a gRPC API (discovered via binary analysis):
+The `rclone-filestore` client doesn't use the REST routes — it speaks **Connect RPC**
+(`connectrpc.com/connect`, `Connect-Protocol-Version` header) over the
+`anthropic/filestore/v1alpha` protobufs. Connect can carry the gRPC, gRPC-Web, or
+Connect-JSON protocols over HTTP/2; reflection is **not** enabled (which is why
+earlier gRPC-reflection probes failed).
 
-- **Service**: `anthropic.filestore.v1alpha.FilestoreService`
-- **Transport**: HTTP/2 with `application/grpc+proto` content type
-- **Auth**: same Bearer JWT
-- **CA cert required**: must use `sandbox-egress-production` CA cert
+- **Package**: `anthropic.filestore.v1alpha`
+- **Auth**: `AuthorizationMetadata` message + `Authorization:` header (same Bearer JWT)
+- **CA cert required**: the egress `sandbox-egress-production` CA
+- **Proto messages confirmed in the binary**: `ListDirectoryResponse`, `ReadFileRequest` (with `.Range`), `ImportFilesRequest`, `Directory`, `File`, `FilesystemFile`, `AuthorizationMetadata`
 
-Methods include (from proto source paths):
-- `ListFiles`, `ReadMetadata`, `CopyFile`, `MoveFile`, `ReadFile`, `CreateFile`, `ListDirectory`, `MakeDirectory`, `ImportZip`
-
-The REST API (`/v1/filestore/fs/`) is more easily accessible and was confirmed working.
+The REST surface (`/v1/filestore/fs/…`) documented above is the easiest to call by
+hand and was confirmed working; the Connect RPC surface is what the FUSE client uses.

@@ -95,6 +95,32 @@ The block device assignment is:
 - `vdd` (index 3) = example skills
 - `vde` (index 4) = private skills (if provisioned)
 
+## `.skill` bundle format & private-skill pipeline *(in-sandbox)*
+
+A `.skill` file is a **standard deflate ZIP** of the skill directory tree rooted at the skill
+name (`file docx.skill` → `Zip archive data … method=deflate`). The squashfs on `vdc`/`vdd`
+is the *extracted* content of these ZIPs — verified: `md5(docx.skill:docx/SKILL.md) ==
+md5(/mnt/skills/public/docx/SKILL.md)`. The `.skill` ZIP is the canonical source artifact.
+
+The official packaging tool ships inside the examples volume at
+`skill-creator/scripts/package_skill.py`:
+```python
+with zipfile.ZipFile(skill_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    for file_path in skill_path.rglob('*'):
+        if not file_path.is_file(): continue
+        arcname = file_path.relative_to(skill_path.parent)
+        if should_exclude(arcname): continue   # excludes __pycache__, *.pyc, evals/
+        zipf.write(file_path, arcname)
+```
+
+**Reconstructed enterprise private-skill pipeline:**
+1. Operator builds a skill dir (`SKILL.md` + optional `scripts/`, `references/`, …).
+2. `python package_skill.py <dir>` → `<name>.skill` (ZIP); validated via `quick_validate.py`.
+3. Anthropic extracts it and builds a **squashfs** image from the contents.
+4. That squashfs is attached as an additional virtio-blk device (**`/dev/vde`**, index 4)
+   for the operator's workspace VMs.
+5. process_api mounts it at **`/mnt/skills/private`** during init (from `readonly_mounts`).
+
 ## Model Tools
 
 The process_api also references a separate "model tools" mount:

@@ -4,17 +4,53 @@
 
 The host (192.0.2.1) connects to the VM (192.0.2.2:2024) over TCP WebSocket.
 
-In production, this connection uses **dp_mtls** (dataplane mutual TLS) for authentication. In this deployment, plain TCP is used as fallback:
+In production, the transport uses **dp_mtls** (dataplane mutual TLS). When restored on a
+host without it, the transport falls back to plain TCP:
 
 ```
 restored on a server without dp_mtls. TCP :2024 remains available.
 ```
 
-## Handshake
+**…but the application layer still authenticates.** Even without dp_mtls, the WS
+handshake is gated by an **EdDSA (Ed25519) JWT** that `process_api` verifies (see
+Handshake). So "plain TCP" describes only the *transport*, not "unauthenticated."
 
+## Handshake & app-layer auth
+
+The first WebSocket message can be **either** an auth JWT or a `ProcessConnection`
+JSON directly. `process_api` branches on the first byte: `'{'` → JSON, `'e'` → a JWT
+(`eyJ…`). Verified strings:
+
+```
+[DEBUG] Received JWT token, verifying...
+[DEBUG] JWT verified successfully: sub='...'
+[DEBUG] JWT verification failed: ...
+[DEBUG] No auth public key loaded, accepting JWT without verification   ← fail-open
+Invalid JWT signature / JWT token has expired / Invalid JWT claims
+Empty first message
+```
+
+- The verification key is the **Ed25519 public key installed via the control server's
+  `/auth_public_key` endpoint** (`Auth public key must be exactly 32 bytes (raw
+  Ed25519)`). If no key was installed, the JWT is **accepted without verification**
+  (fail-open).
+- **In-sandbox check — the wiggle cluster is fail-open in practice.** Its
+  `/container_info.json` has **no `auth_public_key` field** (only `container_name`), so at
+  startup `[WARN] Failed to load auth key:` fires and every handshake takes the
+  `No auth public key loaded, accepting JWT without verification` path. Equivalently, a
+  first message that is plain `ProcessConnection` JSON (`{…`) skips JWT entirely. So on
+  this cluster the **only** access control on :2024 is `--block-local-connections`; the
+  Ed25519 design exists but isn't armed here (it's redundant on dp_mtls clusters and was
+  simply not provisioned on wiggle).
+- The auth JWT's claims are a minimal `struct TokenClaims with 3 elements` = **`sub`,
+  `iat`, `exp`** — distinct from the ES256 filestore JWT (doc 10). The embedded
+  `jsonwebtoken` validator supports ES256/EdDSA/HS*/RS*/PS*, but the installed key here
+  is Ed25519 → **EdDSA**.
+
+Sequence:
 1. Host connects via HTTP Upgrade to WebSocket
-2. First message: **text JSON** — JWT authentication
-3. Second message: **text JSON** — `CreateProcess`
+2. First message: **text** — either the auth JWT (verified, EdDSA) or `ProcessConnection` JSON
+3. Next message: **text JSON** — `CreateProcess`
 4. Connection proceeds with bidirectional message exchange
 
 ```
@@ -30,6 +66,7 @@ Full enum discovered from binary strings:
 | Message | Meaning |
 |---|---|
 | `ProcessCreated` | Process successfully spawned |
+| `ProcessCreatedV2` | V2 spawn ack (with capability negotiation) |
 | `AttachedToProcess` | Reconnected to existing reattachable process |
 | `AttachedToProcessV2` | V2 attach (with capability negotiation) |
 | `ProcessNotRunning` | Requested process doesn't exist |
@@ -101,25 +138,38 @@ The `TraceEvent` message carries distributed tracing data (likely OpenTelemetry 
 
 ## Control Server (Port 2025)
 
-Separate HTTP server on port 2025. Known endpoints:
+Separate HTTP server on port 2025. This is **the snapshot/restore lifecycle API** —
+the host drives it to turn a frozen, generic template VM into a session-specific one.
+Endpoints/actions below are all confirmed from `[CONTROL]`/`[DEBUG]` log strings in
+the binary (this corrects the earlier "only `/mount_root`" description).
 
-### `POST /mount_root`
+| Endpoint / action | Evidence | Purpose |
+|---|---|---|
+| `POST /mount_root` | `mount_root succeeded/failed/task panicked` | apply the per-session mount config (mounts, IDs, auth token) after restore |
+| `/auth_public_key` | `Auth public key set successfully` | install the public key used to authenticate the session/host |
+| `/write_etc_files` | `/write_etc_files: append_ca_cert failed` | write `/etc/resolv.conf`, `/etc/hosts`, append the egress CA |
+| `/fs_freeze` | `/fs_freeze: freezing / ...`, `done (frozen ...)`, `already frozen (EBUSY)` | `FIFREEZE` ioctl the rootfs so the template snapshots clean (pre-snapshot) |
+| `/fs_thaw` | `/fs_thaw: thawing / ...`, `done`, `was not frozen (EINVAL)` | `FITHAW` the rootfs after the snapshot/restore |
+| clock sync | `Clock synced (unix_nanos=...)`, `clock_settime failed` | correct the wall clock after restore (from `realtime_unix_nanos`) |
+| drop caches | `Dropping page caches...` | drop the template's page cache |
+| `POST /container_name` | `Updated container name to: ...`, `Failed to persist container name to container_info.json` | inject/verify the per-conversation container name, persisted to `/container_info.json` |
+| `POST /shutdown` | `Received shutdown request via HTTP`, `Shutdown signal sent successfully` | graceful shutdown |
 
-Used during snapstart to configure session-specific mounts after snapshot restore:
+(The live run enumerated **7 control endpoints**: `/mount_root`, `/fs_freeze`, `/fs_thaw`,
+`/write_etc_files`, `/container_name`, `/auth_public_key`, `/shutdown`.)
+
+### Inferred snapstart sequence
 
 ```
-[CONTROL] Received mount_root request
-[CONTROL] mount_root succeeded: ...
-[CONTROL] mount_root failed: ...
-[CONTROL] mount_root task panicked: ...
+build template VM → /fs_freeze (FIFREEZE) → Firecracker snapshot
+   ↓ (restore, per conversation)
+clock sync → /auth_public_key → /write_etc_files → POST /mount_root
+   → set container name → drop page caches → ready
 ```
-
-The body contains the session mount configuration (filesystem IDs, auth tokens, etc.).
 
 ### Shutdown
 
-Handles graceful shutdown signals. When `--control-server-addr` is set, `SIGINT` handler is disabled to prevent duplicate shutdown signals.
-
-### Container Name Update
-
-Allows the host to update the container name after snapshot restore (to inject the conversation ID).
+Handles graceful shutdown signals. When `--control-server-addr` is set, the `SIGINT`
+handler is disabled to prevent duplicate shutdown signals
+(`[DEBUG] SIGINT handler enabled (control server disabled)` is logged only in the
+no-control-server case).

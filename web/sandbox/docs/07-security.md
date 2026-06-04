@@ -42,19 +42,48 @@ process_api performs token scrubbing in two stages:
 - `*_PASSWORD`
 - `*API_KEY`
 
-Tokens are also never written to disk — they live only in process heap memory during rclone's lifetime. The JWT is in rclone's heap at a known location (extractable with `/proc/PID/mem`), but it's a session-scoped credential.
+Tokens are not persisted in cleartext. **Correction/nuance:** the auth token *is*
+carried in the `POST /mount_root` body and, if written to a per-remote rclone config,
+is stored **rclone-obscured** — reversible with `rclone reveal` (obfuscation, not
+encryption). After rclone starts, the persistent multimount config is scrubbed; the
+live token then exists in rclone's heap (extractable via `/proc/PID/mem`). It remains
+session-scoped (`filesystem_id` baked into the JWT) and useless after the session ends.
 
 ### 4. TLS Inspection
 
-All outbound HTTPS is intercepted by the `sandbox-egress-production` proxy. This is a **monitoring** mechanism, not a security barrier — it allows Anthropic to audit outbound API calls and enforce the domain allowlist.
+All outbound HTTPS is intercepted by the `sandbox-egress-production` proxy. This is a
+**monitoring** mechanism, not a security barrier — it lets Anthropic audit outbound
+API calls and enforce the domain allowlist. `process_api` actively *guarantees*
+interception works by force-injecting the egress CA into every trust store (system,
+Java JKS, Python certifi) and exporting a dozen `*_CA_BUNDLE` env vars at init — so no
+tool can accidentally bypass the MITM by using its own trust store. See `06-network.md`.
 
 ### 5. Domain Allowlist
 
 Only specific domains are reachable. Enforced at the egress proxy (host-side), not via iptables in the VM. Unknown domains get a TCP reset or `x-deny-reason` header.
 
-### 6. Local Connection Blocking
+### 6. Local Connection Blocking + app-layer JWT auth
 
-`--block-local-connections` prevents processes inside the VM from connecting to port 2024 (the tool execution WebSocket server). Only the host (192.0.2.1) can reach it. This prevents a malicious bash command from issuing WebSocket messages on behalf of the model.
+`--block-local-connections` prevents processes inside the VM from connecting to port
+2024 (the tool execution WebSocket server). Only the host (192.0.2.1) can reach it.
+This prevents a malicious bash command from issuing WebSocket messages on behalf of the
+model.
+
+**Second layer (verified from the binary):** the WS handshake is also gated by an
+application-layer **EdDSA (Ed25519) JWT**. `process_api` verifies the first message
+against a public key the host installs via the control server's `/auth_public_key`
+endpoint (`[DEBUG] JWT verified successfully: sub='...'`). It's a distinct credential
+from the ES256 filestore JWT (claims: just `sub`/`iat`/`exp`).
+
+**Confirmed fail-open on the wiggle cluster.** In-sandbox, `/container_info.json` has
+**no `auth_public_key`**, so `process_api` logs *"No auth public key loaded, accepting
+JWT without verification"* and accepts any first message (a plain JSON `ProcessConnection`
+skips the JWT entirely). So on this cluster the JWT check is a **no-op** and
+`--block-local-connections` is the **only** access control on :2024. Practical
+implication: an external caller that could reach port 2024 over the host network would
+get **unauthenticated process creation** — the security rests entirely on the network
+not exposing :2024 and on the local-IP block. (On dp_mtls clusters the transport mutual-
+TLS makes the Ed25519 check redundant.)
 
 ### 7. Linux Capabilities
 
@@ -81,6 +110,9 @@ Only `CAP_SYS_RESOURCE` is missing. All others are present. This is **not a secu
 ## What Claude Can Do Inside the Sandbox
 
 - Run arbitrary code as root with nearly all capabilities
+- **Freeze its own root filesystem**: `ioctl(open("/"), FIFREEZE)` succeeds from inside
+  (confirmed live). Writes to the frozen ext4 then block until `FITHAW` — a self-inflicted
+  local DoS of the VM's own disk writes, with no impact beyond the isolated VM.
 - Read and modify any file on the root ext4 filesystem
 - Make network requests to allowlisted domains
 - Access `/proc/mem` of other processes (including PID 1)

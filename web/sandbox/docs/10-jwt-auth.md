@@ -1,13 +1,24 @@
 # JWT Authentication
 
+> **There are two independent JWT systems in this VM — don't conflate them:**
+> | | **Filestore JWT** (this doc) | **WS-auth JWT** (`05-websocket-protocol.md`) |
+> |---|---|---|
+> | Purpose | rclone → `api.anthropic.com` storage/memory | host → `process_api` port 2024 handshake |
+> | Algorithm | **ES256** (P-256 ECDSA) | **EdDSA** (Ed25519) |
+> | Verified by | Anthropic's API backend | `process_api` itself, against the key from `/auth_public_key` |
+> | Claims | account/org/workspace + `filesystem_id` (10 fields) | minimal `TokenClaims`: `sub`, `iat`, `exp` |
+> | If invalid | API returns 401 | connection rejected — *unless no key loaded (fail-open)* |
+>
+> The rest of this document is about the **filestore JWT**.
+
 ## Overview
 
 The session JWT is the primary credential used by rclone-filestore to authenticate against Anthropic's API. It is:
 
 - **ES256** (ECDSA with SHA-256) — signed by Anthropic's private key
-- **6-hour TTL** from issuance
-- **Session-scoped** — tied to a specific `filesystem_id` and conversation
-- **Never written to disk** — lives only in rclone's process heap
+- **6-hour TTL** from issuance (exp − iat = 21600s, confirmed)
+- **Session-scoped** — the `filesystem_id` is a *claim inside the JWT* (see payload), so the token is cryptographically bound to exactly one chat filesystem
+- **Not persisted in cleartext** — delivered via the `POST /mount_root` body and scrubbed from persistent configs; if placed in a per-remote rclone config it is stored **obscured**. In-sandbox testing shows this fork uses a **custom ChaCha20** obscure (key = SHA256(`!RCLONE!OBSCURE!DATA!`), 16-byte IV, base64url) — reversible (so obfuscation, not encryption) but **not** decodable by upstream `rclone reveal`, and the `reveal` CLI is stripped. At runtime the JWT lives in rclone's heap.
 - **Extractable** at runtime via `/proc/<rclone_pid>/mem` (with root access)
 
 ## JWT Header

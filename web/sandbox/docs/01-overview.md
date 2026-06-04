@@ -38,7 +38,7 @@ Example: `container_<REDACTED>--<REDACTED>--<REDACTED>`
 |---|---|
 | `02-vm-hardware.md` | Kernel, CPU, RAM, block devices |
 | `03-snapstart.md` | Snapshot/restore boot mechanism |
-| `04-process-api.md` | The PID 1 init binary |
+| `04-process-api.md` | The PID 1 init binary — exhaustive end-to-end, route-by-route |
 | `05-websocket-protocol.md` | Tool execution protocol |
 | `06-network.md` | Networking and egress proxy |
 | `07-security.md` | Security model and isolation layers |
@@ -50,3 +50,5 @@ Example: `container_<REDACTED>--<REDACTED>--<REDACTED>`
 | `13-present-files.md` | How the present_files tool works |
 | `14-container-env.md` | container.env — the initramfs config |
 | `15-findings-and-unknowns.md` | What was confirmed vs uncertain |
+| `16-binary-analysis-process-api-rclone.md` | Binary-verified deep dive on both binaries; corrections to 04/05/08/09/10/12 |
+| `17-runtime-state.md` | Observed live processes, sockets, and cgroups |

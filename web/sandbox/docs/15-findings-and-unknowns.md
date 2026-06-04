@@ -70,40 +70,68 @@ Everything in this section was directly verified via live system inspection.
 
 ## Uncertainties and Unknowns
 
-### Host-Side Orchestration
-- ❓ What scheduler/orchestration system triggers snapshot restores?
-- ❓ How many VM snapshots exist in the pool at any time?
-- ❓ What triggers VM termination (conversation end? timeout? turn count?)
-- ❓ Are VMs reused across conversations for the same user?
+### Host-Side Orchestration  *(partially resolved)*
+- ✅ **Snapshot template baked 2026-04-18** (root inode birth; matches the base-image build
+  date) — restored ~47 days later for this conversation. The full freeze→snapshot→thaw→
+  `mount_root` lifecycle is mapped (see `03`/`05`).
+- ✅ **Same `filesystem_id` survives an in-session VM restart** — a mid-conversation restart
+  restored the same slot/conversation context, i.e. *same conversation ID → same VM slot*
+  within a session.
+- ✅ JWT `exp` (6h) is the credential-expiry mechanism that bounds a reconnecting session.
+- ❓ Pool sizing / warm-pool scheduler; whether VMs are re-pooled across *different*
+  conversations; exact termination trigger — all host-side, not observable from inside.
 
-### `dp_mtls`
-- ❓ How dp_mtls authentication works when available
-- ❓ Whether it uses client certificates or some other mechanism
-- ❓ Why "wiggle" cluster doesn't have it
+### `dp_mtls` / port-2024 auth  *(RESOLVED for wiggle — see `05`/`07`)*
+- ✅ The WS handshake supports an app-layer **EdDSA (Ed25519) JWT** verified against the key
+  installed via the control server's `/auth_public_key` endpoint (claims `sub`/`iat`/`exp`).
+- ✅ **Confirmed fail-open on wiggle:** `/container_info.json` has **no `auth_public_key`**,
+  so `[WARN] Failed to load auth key:` fires at startup and every handshake hits
+  *"No auth public key loaded, accepting JWT without verification"* (a plain JSON first
+  message skips the JWT entirely). The **only** guard on :2024 is `--block-local-connections`.
+- ✅ **dp_mtls substantially explained (in-sandbox):** the base image pre-installs two CA
+  families — `swp-ca-*` (the TLS-inspection MITM CA) and `egress-gateway-ca-*` (issued
+  Feb 2026). The egress-gateway CA is *almost certainly* the one that signs the **host's
+  client cert** for dp_mtls: in dp_mtls mode the host presents a client cert to :2024 that
+  process_api verifies at the TLS layer (no JWT needed). See `06`. *(inferred — no
+  client-cert material is in the VM; that's host-side.)*
 
-### `container.env`
-- ❓ Exact content for a standard session (absent? empty JSON? minimal config?)
-- ❓ Full schema for enterprise sessions with private skills
-- ❓ How it's injected into the initramfs per-session
+### `mount` vs `mount2`  *(RESOLVED — see `08`)*
+- ✅ Both use `hanwen/go-fuse/v2 v2.8.0`. `mount` = upstream rclone (VFS layer); `mount2` =
+  Anthropic-custom `mount2direct` (raw go-fuse, bypasses VFS). `multimount` uses `mount2direct`.
+
+### `container.env`  *(schema resolved — see `14`)*
+- ✅ Deserializes into the same `MountRootConfig`/`FuseMountConfig`/`EtcFiles` structs as
+  the `POST /mount_root` body; top-level field names recovered verbatim from the binary
+- ❓ Exact content for a standard session (absent? minimal?); enterprise/private-skills variant
 
 ### `--wiggle--`
 - ❓ Whether "wiggle" is a cluster name, region, deployment tier, or internal project name
 - ❓ Whether other clusters exist and what they're called
 
-### Model Tools
-- ❓ What exactly is in `/mnt/sandboxing/model_tools_env/v1/python`
-- ❓ When and why it's mounted
-- ❓ How it relates to skills vs. built-in Python environment
+### Model Tools  *(RESOLVED — in-sandbox check)*
+- ✅ **Absent in standard consumer sessions** — `/mnt/sandboxing` does not exist at all;
+  `mount_model_tools` is false, so init skips it. It's an operator/deployment feature.
+- ✅ When present it's a Python env at `/mnt/sandboxing/model_tools_env/v1/python`. The CA-
+  injection paths process_api probes (`pyenv`, `uv`, `conda`, plus Chrome/Firefox policy
+  dirs) imply it's a pyenv/uv/conda Python env, optionally with Chromium/Firefox for
+  browser-automation operator deployments.
+- ❓ Exact package contents (never provisioned in any captured consumer session)
 
-### Memory Backend
-- ❓ How the `sk-ant-mem-*` token is provisioned per session
-- ❓ Internal hostname for the memory gRPC service
-- ❓ Whether memory backend runs as a separate rclone FUSE mount or differently
+### Memory Backend  *(largely resolved — see `12-memory-api.md`)*
+- ✅ **RPC-only in a standard session — NOT FUSE-mounted.** `memory_store_id` is `null` on
+  every mount; the FUSE memory mount only appears when the backend provisions a store.
+- ✅ Transport is **Connect RPC** (`connectrpc.com/connect`), service
+  `anthropic.memory.api.v1alpha.MemoryInternalService` (WriteMemory / ReadMemoryByPath /
+  MoveMemory / DeleteMemoryByPath / ListMemories / SearchMemories)
+- ✅ Token format `sk-ant-mem-*`; guardrails `memory_content_too_large` / `memory move rejected`
+- ❓ How the `sk-ant-mem-*` token is provisioned; internal hostname of the memory service
 
-### Private Skills (Enterprise)
-- ❓ How operator custom skills are packaged into squashfs images
-- ❓ Whether there's a skill upload API
-- ❓ How workspace-scoped filestore JWTs differ from session-scoped ones
+### Private Skills (Enterprise)  *(packaging RESOLVED — see `11`)*
+- ✅ `.skill` = standard **deflate ZIP** of the skill tree; official packager
+  `skill-creator/scripts/package_skill.py` (excludes `__pycache__`/`*.pyc`/`evals/`).
+  Pipeline: package → validate → build squashfs → attach as `/dev/vde` → mount at
+  `/mnt/skills/private`. The squashfs is just the extracted ZIP (md5-verified).
+- ❓ Whether there's a hosted skill *upload* API; how workspace-scoped filestore JWTs differ
 
 ### Snapstart Template
 - ❓ How often templates are rebuilt (when kernel changes? daily?)

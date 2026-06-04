@@ -44,6 +44,19 @@
 - The host already has the session JWT to access the file
 - The API layer can serve the file directly from the filestore to the user
 
+### Binary-verified: process_api has no concept of tools at all
+
+Searching the `process_api` binary for tool names returns **nothing** — `present_files`,
+`local_resource`, `ask_user_input`, `message_compose`, `recipe_display`, `chart_display`
+are all absent, **and so are `bash_tool`, `create_file`, `str_replace`, `view`**.
+`process_api` only speaks a generic process protocol (`CreateProcess` / `process_id` /
+stdout-stderr-stdin).
+
+Implication: **the entire tool layer lives on the host.** The orchestration layer maps
+*execution* tools (bash, file edits, view) into `CreateProcess` calls over the `:2024`
+WebSocket, and handles *virtual* tools (present_files and the UI tools below) itself —
+they never cross into the VM. The VM is just "run this process and stream its IO."
+
 ## The `local_resource` Tag
 
 The tool result XML format:
@@ -105,5 +118,7 @@ Tools that are similarly handled by the API layer (not in the VM):
 - `places_map_display_v0` — renders maps
 - `event_create_v1`, `reminder_create_v0` — calendar/reminder integration
 - `suggest_connectors`, `search_mcp_registry` — MCP app management
+- `end_conversation` — last-resort conversation termination (its instructions are a
+  system-prompt block; see `context/10_end_conversation_tool.txt`)
 
 All of these produce UI elements on the host side with no VM involvement.

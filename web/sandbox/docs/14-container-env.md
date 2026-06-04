@@ -16,13 +16,30 @@ Three layers of protection prevent reading its content after the fact:
 
 ## Evidence of Its Existence
 
-From process_api binary strings:
+`container.env` is referenced in the `process_api` binary. The config it carries
+deserializes into Rust structs whose names *are* in the binary — this is the
+authoritative schema, not a guess:
+
 ```
-/container.env
-[INIT] Failed to parse container.env as JSON: ...
+struct MountRootConfig   — top-level config (also the POST /mount_root body)
+struct FuseMountConfig   — one entry per rclone FUSE mount
+struct EtcFiles          — resolv_conf / etc_hosts / ca_cert_pem
+struct TokenClaims       — the WS-auth (Ed25519) JWT claims: sub/iat/exp
 ```
 
-The error message is generic — it fires if the file doesn't exist OR if it contains invalid JSON. For standard consumer sessions, the file may simply be absent (process_api continues with defaults).
+So **`container.env` (fresh boot) and the `POST /mount_root` body (snapstart)
+deserialize into the *same* `MountRootConfig` type** — two delivery paths, one schema.
+Verbatim top-level field names recovered from the binary:
+
+```
+destination  filesystem_id  memory_store_id  auth_token  service_url
+vfs_cache_mode  backend_cache_ttl  resolv_conf  etc_hosts  ca_cert_pem
+mount_model_tools  mount_rclone_tools  rclone_tools_dev_index
+fuse_mounts  readonly_mounts  readonly_dev_start_index  realtime_unix_nanos
+```
+
+For standard consumer sessions the file may be absent on fresh boot (config then
+arrives via `POST /mount_root` after snapshot restore instead).
 
 ## Reconstructed JSON Schema
 

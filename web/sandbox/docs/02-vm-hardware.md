@@ -23,13 +23,16 @@ Linux vm 6.18.5 #2 SMP PREEMPT_DYNAMIC Wed Jan 14 17:56:08 UTC 2026 x86_64
 
 ## CPU
 
-- **1 vCPU**, Intel(R) Xeon(R) Processor @ 2.80GHz
-- Architecture: x86_64
-- 1 NUMA node
+- **1 vCPU**, Intel(R) Xeon(R), x86_64, 1 NUMA node
+- **CPU clock is host-dependent and varies per session** — observed both **2.80 GHz** and
+  **2.10 GHz** across restores. Because snapstart restores land on different physical hosts
+  from the pool, the reported frequency (and exact RAM) differs between conversations; don't
+  treat a specific GHz as fixed.
 
 ## RAM
 
-- Approximately **3–4 GB** usable
+- **Host-dependent, ~3–4 GB** usable (e.g. ~4.0 GB / 4,099,204 kB observed in one session,
+  ~3 GB in another) — varies with the physical host, same reason as CPU clock.
 - No cgroupv1 memory limit set (value is max int64 = effectively unlimited)
 - OOM killed processes are tracked in `oom_killed.log`
 
@@ -52,6 +55,12 @@ Reported by `/proc/partitions` and `dmesg`:
 - No journal (`mounted filesystem without journal`)
 - Mounted with `resuid=65534,resgid=65534`
 - UUID: `00000000-0000-0000-0000-000000000000` (placeholder — snapshot template artifact)
+- Filesystem state reports **"not clean"** — never cleanly unmounted, expected for a
+  memory-snapshot-restored rootfs.
+- **Root inode birth = 2026-04-18 18:22:28 UTC** = the snapshot **template** creation date
+  (~47 days before this 2026-06-04 conversation). Every conversation off this template sees
+  the *same* birth time — it's template age, not session age. (Matches the `/usr/local/bin`
+  rclone build's `vcs.time=2026-04-18` — the whole base image was baked that day.)
 
 ## Running Processes
 

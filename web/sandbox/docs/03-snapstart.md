@@ -59,20 +59,38 @@ Cold boot of the VM takes ~20 seconds (from dmesg timestamps). Snapstart allows:
 - `init_on_free=1` zeros the freed initramfs pages immediately — contents unrecoverable
 - `/old_root` is left as an empty directory (mount point artifact)
 
-## Init Sequence Log (reconstructed from binary strings)
+## Init Sequence Log (verbatim strings from the binary)
+
+All of the following are **exact** strings in `process_api` (verified, not paraphrased):
 
 ```
-[INIT] Fresh boot: reading /mount_config.json...      # or snapstart path
-[INIT] FUSE daemon(s) spawned in ...
-drop_caches ok; config written; model_tools ok;
+[INIT] Fresh boot: reading /mount_config.json...
+[INIT] Snapstart template mode: signaling ready...
+ resumed from frozen full-checkpoint snapshot
+SNAPSTART_READY
+[INIT] Creating /dev/fuse device node...     |  [INIT] /dev/fuse already exists
+[INIT] Waiting for ready_file(s)... (        |  [INIT] All ready_file(s) found after
+[INIT] pivot_root ok                         |  [INIT] pivot_root failed (
+ (checkpoint replaced dir)
 [INIT] Auth tokens scrubbed from config(s)
-[INIT] Firecracker init complete, starting process_api services...
+[INIT] Fresh boot init complete:
+drop_caches ok; config written; model_tools ok;
 ```
+
+Newly confirmed mechanisms:
+- **`/dev/fuse` is created by init** before spawning rclone (the FUSE backends need it).
+- **Init polls for `ready_file(s)`** — it blocks until rclone signals its mounts are up
+  (`/tmp/rclone-mounts/ready`) before declaring the VM ready:
+  `Waiting for ready_file(s)...` → `All ready_file(s) found after <dur>`.
+- Config deserializes into Rust structs `MountRootConfig` / `FuseMountConfig` /
+  `EtcFiles` / `TokenClaims` (the last is the **WS-auth** JWT, not the filestore one —
+  see `05`/`10`).
 
 ## Confirmed Evidence
 
 - `dmesg` shows boot at second 0, processes all started at `10:29:31` — gap confirms snapshot restore
 - Block devices initially 275GB, resized to actual sizes 1.4s after boot
-- `resumed from frozen full-checkpoint snapshot` string confirmed in process_api binary
-- `/mount_config.json` absent on disk (consumed during fresh boot, or snapstart used POST)
+- **`resumed from frozen full-checkpoint snapshot`** — exact string confirmed in `process_api`
+- **`SNAPSTART_READY`** and **`[INIT] Snapstart template mode: signaling ready...`** confirmed
+- Config path is `/mount_config.json` (absent on disk in this snapshot — consumed during fresh boot; snapstart uses `POST /mount_root`)
 - `/old_root` exists as an empty directory

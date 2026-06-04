@@ -59,6 +59,38 @@ The VM's `/etc/ssl/certs/ca-certificates.crt` trusts this CA. From outside the V
 
 This means Anthropic can see all plaintext of "HTTPS" connections from the VM.
 
+The actual CA (from `certs/anthropic-sandbox-egress-ca.pem`, verified with `openssl`):
+
+```
+subject = O=Anthropic, CN=sandbox-egress-production TLS Inspection CA
+issuer  = O=Anthropic, CN=sandbox-egress-production TLS Inspection CA  (self-signed)
+notBefore = Jul 22 21:34:59 2025 GMT
+notAfter  = Jul 20 21:34:58 2035 GMT
+```
+
+### How the CA reaches every client
+
+The interception only works because `process_api` **force-injects this CA into every
+trust store at init** (the on-disk file is `sandboxing-egress-ca.pem`). It is not just
+added to the system bundle — init also:
+
+- writes `/etc/ssl/certs/sandboxing-egress-ca.pem` and `/usr/local/share/ca-certificates/sandboxing-egress-ca.crt`
+- injects it into **Java JKS cacerts** across jvm/jre/sdkman paths via
+  `keytool -importcert -keystore <cacerts> -storepass changeit -noprompt -alias …`
+  (default keystore password `changeit`; logs `[INIT] keytool -importcert failed:` /
+  `cacerts write failed` / `not JKS v2 … changeit and keytool unavailable/failed; skipped` on failure)
+- injects it into the **NSS databases** used by Chromium/Firefox via `certutil` into
+  `cert9.db`
+- patches **Python certifi** bundles (`certifi/cacert.pem`, `pip/_vendor/certifi/cacert.pem`, `botocore/cacert.pem`)
+- drops Firefox enterprise-policy files
+- exports CA-bundle / proxy env vars so non-system TLS stacks trust it too:
+  `REQUESTS_CA_BUNDLE`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `CURL_CA_BUNDLE`,
+  `NODE_EXTRA_CA_CERTS`, `GIT_SSL_CAINFO`, `AWS_CA_BUNDLE`, `HTTPLIB2_CA_CERTS`,
+  `CLOUDSDK_CORE_CUSTOM_CA_CERTS_FILE`, `NIX_SSL_CERT_FILE`, `PIP_CERT`, plus `NO_PROXY`
+
+The result: curl, Python (requests/httpx/boto), Node, Java, git, gcloud, and the AWS
+CLI all transparently accept the MITM CA without per-tool configuration.
+
 ## Network Allowlist
 
 Enforced at the egress proxy, not via iptables inside the VM. Allowed domains (from system config):
@@ -84,7 +116,12 @@ static.crates.io
 yarnpkg.com
 ```
 
-The egress proxy returns an `x-deny-reason` header on blocked requests.
+**Confirmed by in-sandbox testing:** the allowlist is **exact-hostname**, not
+wildcard-subdomain, and blocked requests return **`x-deny-reason: host_not_allowed`**.
+Notably **`anthropic.com` (apex) and `docs.anthropic.com` are blocked** — only
+`api.anthropic.com` is reachable. Also blocked in testing: `example.com`, `api.openai.com`,
+`google.com`, `huggingface.co`. So there is no way to reach Anthropic's docs/marketing
+hosts from inside the VM — only the API endpoint.
 
 ## iptables
 
@@ -103,3 +140,32 @@ In production deployments, the WebSocket connection to port 2024 uses **dp_mtls*
 ```
 restored on a server without dp_mtls. TCP :2024 remains available.
 ```
+
+### Two Anthropic CA families are pre-installed (in-sandbox)
+
+The base snapshot image ships **four** internal CA certs in
+`/usr/local/share/ca-certificates/` (symlinked into `/etc/ssl/certs/`, installed
+2026-04-18 = snapshot creation date):
+
+| File | CN | Valid from |
+|---|---|---|
+| `swp-ca-production.crt` | sandbox-egress-**production** TLS Inspection CA | Jul 2025 |
+| `swp-ca-staging.crt` | sandbox-egress-**staging** TLS Inspection CA | Jul 2025 |
+| `egress-gateway-ca-production.crt` | sandbox-egress-gateway-**production** Egress Gateway CA | **Feb 2026** |
+| `egress-gateway-ca-staging.crt` | sandbox-egress-gateway-**staging** Egress Gateway CA | Feb 2026 |
+
+- **`swp-ca`** ("SWP" = Secure/Sandboxed Workload Platform) is the **TLS-inspection MITM
+  CA** from §"TLS Inspection Proxy" — the same `sandbox-egress-production TLS Inspection CA`
+  cert observed live on the egress proxy. (So the on-disk filename is `swp-ca-production.crt`;
+  process_api also writes it as `sandboxing-egress-ca.pem`.)
+- **`egress-gateway-ca`** is a *separate, newer* CA (issued Feb 2026, ~4 months after swp-ca).
+
+### Reconstructed dp_mtls flow *(inferred from the CAs; no client-cert material in the VM)*
+The `egress-gateway-ca` is **almost certainly the CA that signs the host's client
+certificate** for dp_mtls. In dp_mtls mode: the host opens a **TLS** connection to :2024
+and presents a client cert signed by `egress-gateway-ca-production`; process_api verifies it
+against the installed CA; authentication is at the TLS layer, so **no JWT/Ed25519 is needed**
+and the first WS message is parsed directly as `CreateProcess`. On the wiggle (no-dp_mtls)
+cluster it's plain TCP with the fail-open JWT path (see `05`/`07`). The CAs are baked into the
+shared base image, which is why they're present even on a cluster that doesn't use dp_mtls. No
+client private key / signed cert was found in the VM — that material is host-side only.
