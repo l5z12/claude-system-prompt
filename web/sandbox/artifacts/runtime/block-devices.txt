@@ -1,0 +1,12 @@
+=== /dev/vda ===
+/dev/vda: block special (254/0)
+
+=== /dev/vdb ===
+/dev/vdb: block special (254/16)
+
+=== /dev/vdc ===
+/dev/vdc: block special (254/32)
+
+=== /dev/vdd ===
+/dev/vdd: block special (254/48)
+

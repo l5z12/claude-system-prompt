@@ -1,0 +1,29 @@
+00000000-00000fff : Reserved
+00001000-0009fbff : System RAM
+0009fc00-000fffff : Reserved
+  000de000-000defff : AMZNC10C:00
+  000f0000-000fffff : System ROM
+00100000-bfffffff : System RAM
+  01000000-01e9e197 : Kernel code
+  02000000-023bbfff : Kernel rodata
+  02400000-0253933f : Kernel data
+  0283b000-029fffff : Kernel bss
+c0001000-eebfffff : PCI Bus 0000:00
+eec00000-febfffff : Reserved
+  eec00000-eecfffff : PCI ECAM 0000 [bus 00-00]
+    eec00000-eecfffff : PCI Bus 0000:00
+fec00000-fec003ff : IOAPIC 0
+100000000-13fffffff : System RAM
+4000000000-7fffffffff : PCI Bus 0000:00
+  4000000000-400007ffff : 0000:00:01.0
+    4000000000-400007ffff : virtio-pci-modern
+  4000080000-40000fffff : 0000:00:02.0
+    4000080000-40000fffff : virtio-pci-modern
+  4000100000-400017ffff : 0000:00:03.0
+    4000100000-400017ffff : virtio-pci-modern
+  4000180000-40001fffff : 0000:00:04.0
+    4000180000-40001fffff : virtio-pci-modern
+  4000200000-400027ffff : 0000:00:05.0
+    4000200000-400027ffff : virtio-pci-modern
+  4000280000-40002fffff : 0000:00:06.0
+    4000280000-40002fffff : virtio-pci-modern

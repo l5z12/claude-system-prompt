@@ -28,28 +28,34 @@ function scanArchive(repoRoot) {
       continue;
     }
     for (const full of all) {
-      if (!full.endsWith('.txt')) continue;
       const rel = relative(repoRoot, full).split(sep).join('/');
+      if (rel.includes('_original')) continue; // uncensored copies (git-ignored) must never ship
       if (rel.startsWith('web/skills/')) continue; // skill bundles aren't prompt blocks
       const parts = rel.split('/');
       const filename = parts[parts.length - 1];
-      const m = filename.match(/^(\d+)[_-]?(.*)\.txt$/i);
-      files.push({
+      const m = filename.match(/^(\d+)[_-]?(.*)\.[^.]+$/);
+      const entry = {
         path: rel,
         surface,
         model: parts[1],
         file: filename,
-        order: m ? parseInt(m[1], 10) : 9999,
-        name: (m ? m[2] : filename.replace(/\.txt$/i, '')) || filename,
-        content: readFileSync(full, 'utf8'),
-      });
+        order: m ? parseInt(m[1], 10) : null,
+        name: (m ? m[2] : filename.replace(/\.[^.]+$/, '')) || filename,
+        size: statSync(full).size,
+      };
+      // bundle text content only — skip binaries (NUL byte) and very large files
+      if (entry.size <= 2_000_000) {
+        const buf = readFileSync(full);
+        if (!buf.includes(0)) entry.content = buf.toString('utf8');
+      }
+      files.push(entry);
     }
   }
   files.sort(
     (a, b) =>
       a.surface.localeCompare(b.surface) ||
       a.model.localeCompare(b.model) ||
-      a.order - b.order ||
+      (a.order ?? 1e9) - (b.order ?? 1e9) ||
       a.file.localeCompare(b.file)
   );
   return { generatedAt: new Date().toISOString(), count: files.length, files };

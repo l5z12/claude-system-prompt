@@ -1,0 +1,6 @@
+major minor  #blocks  name
+
+ 254        0  268435456 vda
+ 254       16       9952 vdb
+ 254       32        656 vdc
+ 254       48       5476 vdd

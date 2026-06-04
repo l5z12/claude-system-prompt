@@ -5,6 +5,7 @@ const $ = (sel) => document.querySelector(sel);
 const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const api = (path) => fetch(path).then((r) => r.json());
 const REPO = 'https://github.com/l5z12/claude-system-prompt';
+const RAW = 'https://raw.githubusercontent.com/l5z12/claude-system-prompt/HEAD';
 const encPath = (p) => p.split('/').map(encodeURIComponent).join('/');
 
 let TREE = {};      // { surface: { model: [ {path,file,name,order} ] } }
@@ -74,31 +75,45 @@ function tabHash(tab) {
 })();
 
 // ---------- browse ----------
+// Recursive directory tree over the real archive paths (a proper file explorer).
 function renderTree() {
   const root = $('#tree');
   root.innerHTML = '';
-  for (const surface of Object.keys(TREE)) {
-    const sg = document.createElement('div');
-    sg.className = 'surface-group';
-    sg.innerHTML = `<div class="group-label">${esc(surface)}/</div>`;
-    for (const model of Object.keys(TREE[surface])) {
-      const det = document.createElement('details');
-      det.className = 'model-group';
-      const sum = document.createElement('summary');
-      sum.textContent = model;
-      det.appendChild(sum);
-      for (const blk of TREE[surface][model]) {
-        const a = document.createElement('div');
-        a.className = 'block-link';
-        a.dataset.path = blk.path;
-        const num = String(blk.order).padStart(2, '0');
-        a.innerHTML = `<span><span class="num">${num}</span> ${esc(blk.name)}</span>`;
-        a.addEventListener('click', () => setHash('browse/' + encPath(blk.path)));
-        det.appendChild(a);
-      }
-      sg.appendChild(det);
+  const tree = {};
+  for (const f of FILES) {
+    const parts = f.path.split('/');
+    let node = tree;
+    for (let i = 0; i < parts.length - 1; i++) {
+      node.dirs ??= {};
+      node = node.dirs[parts[i]] ??= {};
     }
-    root.appendChild(sg);
+    (node.files ??= []).push(f);
+  }
+  renderDir(tree, root, 0);
+}
+
+function renderDir(node, container, depth) {
+  for (const name of Object.keys(node.dirs || {}).sort()) {
+    const det = document.createElement('details');
+    det.className = 'tree-dir';
+    if (depth === 0) det.open = true;
+    const sum = document.createElement('summary');
+    sum.textContent = name;
+    det.appendChild(sum);
+    const kids = document.createElement('div');
+    kids.className = 'tree-kids';
+    renderDir(node.dirs[name], kids, depth + 1);
+    det.appendChild(kids);
+    container.appendChild(det);
+  }
+  const files = (node.files || []).sort((a, b) => (a.order ?? 1e9) - (b.order ?? 1e9) || a.file.localeCompare(b.file));
+  for (const f of files) {
+    const a = document.createElement('div');
+    a.className = 'block-link';
+    a.dataset.path = f.path;
+    a.innerHTML = `<span class="fname">${esc(f.file)}</span>`;
+    a.addEventListener('click', () => setHash('browse/' + encPath(f.path)));
+    container.appendChild(a);
   }
 }
 
@@ -120,14 +135,41 @@ async function loadBlock(path) {
   activePath = path;
   for (const el of document.querySelectorAll('.block-link')) el.classList.toggle('active', el.dataset.path === path);
   const link = document.querySelector(`.block-link[data-path="${cssEscape(path)}"]`);
-  if (link && link.closest('details')) link.closest('details').open = true;
+  if (link) {
+    for (let n = link.parentElement; n; n = n.parentElement) if (n.tagName === 'DETAILS') n.open = true;
+    link.scrollIntoView({ block: 'nearest' });
+  }
   $('#browse-head').classList.remove('hidden');
   $('#browse-path').textContent = path;
-  $('#browse-raw').href = '/raw?path=' + encodeURIComponent(path);
   $('#browse-gh').href = `${REPO}/blob/HEAD/${encPath(path)}`;
-  $('#browse-body').textContent = 'loading…';
+  const body = $('#browse-body');
+  body.textContent = 'loading…';
   const f = await api('/api/file?path=' + encodeURIComponent(path));
-  $('#browse-body').textContent = f.error ? '(block not found)' : f.content;
+  if (f.error) { body.textContent = '(not found)'; return; }
+  if (f.binary) {
+    $('#browse-raw').classList.add('hidden');
+    $('#browse-diff').classList.add('hidden');
+    const url = `${RAW}/${encPath(path)}`;
+    body.innerHTML =
+      `<div class="binnote"><div>Unparsable file (binary or &gt; 2&nbsp;MB) — ${fmtSize(f.size)}.</div>` +
+      `<div class="binnote-actions">` +
+      `<a class="ghost" href="${url}" target="_blank" rel="noopener">Show raw ↗</a>` +
+      `<a class="ghost" href="${url}" download="${esc(path.split('/').pop())}">Download</a>` +
+      `</div></div>`;
+    return;
+  }
+  $('#browse-raw').classList.remove('hidden');
+  $('#browse-diff').classList.remove('hidden');
+  $('#browse-raw').href = '/raw?path=' + encodeURIComponent(path);
+  if (/\.md$/i.test(path)) {
+    body.innerHTML = `<div class="markdown">${marked.parse(stripFrontmatter(f.content))}</div>`;
+  } else {
+    body.innerHTML = '';
+    const pre = document.createElement('pre');
+    pre.className = 'raw';
+    pre.textContent = f.content;
+    body.appendChild(pre);
+  }
 }
 
 $('#browse-back').addEventListener('click', () => setHash('browse'));
@@ -137,7 +179,7 @@ $('#browse-diff').addEventListener('click', () => {
   const cur = FILES.find((f) => f.path === activePath);
   if (!cur) return;
   // prefer a sibling: same surface + same block name, different path
-  const sib = FILES.find((f) => f.surface === cur.surface && f.name === cur.name && f.path !== cur.path);
+  const sib = FILES.find((f) => !f.bin && f.surface === cur.surface && f.name === cur.name && f.path !== cur.path);
   setHash('diff?' + new URLSearchParams({ left: cur.path, right: sib ? sib.path : cur.path }).toString());
 });
 
@@ -203,10 +245,10 @@ function fillPickers() {
   $('#diff-left').innerHTML = opts;
   $('#diff-right').innerHTML = opts;
   // sensible default: same block name across two models if possible
-  if (FILES.length >= 2) {
-    $('#diff-left').selectedIndex = 0;
-    const left = FILES[0];
-    const sib = FILES.find((f) => f.surface === left.surface && f.name === left.name && f.path !== left.path) || FILES[1];
+  const tf = FILES.filter((f) => !f.bin);
+  if (tf.length >= 2) {
+    $('#diff-left').value = tf[0].path;
+    const sib = tf.find((f) => f.surface === tf[0].surface && f.name === tf[0].name && f.path !== tf[0].path) || tf[1];
     $('#diff-right').value = sib.path;
   }
   $('#diff-left').addEventListener('change', syncDiff);
@@ -242,6 +284,7 @@ function optionsHtml() {
   let html = '';
   let group = null;
   for (const f of FILES) {
+    if (f.bin) continue;
     const g = `${f.surface} / ${f.model}`;
     if (g !== group) {
       if (group !== null) html += '</optgroup>';
@@ -451,7 +494,12 @@ async function loadFile(path) {
   const BIN = new Set(['ttf', 'otf', 'woff', 'woff2', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'zip', 'gz', 'skill']);
   const url = skillFileUrl(path);
   if (BIN.has(ext)) {
-    el.innerHTML = `<div class="binnote">Binary file (.${esc(ext)}). <a href="${url}" target="_blank" rel="noopener">Open / download ↗</a></div>`;
+    el.innerHTML =
+      `<div class="binnote"><div>Binary file (.${esc(ext)}).</div>` +
+      `<div class="binnote-actions">` +
+      `<a class="ghost" href="${url}" target="_blank" rel="noopener">Show raw ↗</a>` +
+      `<a class="ghost" href="${url}" download>Download</a>` +
+      `</div></div>`;
     return;
   }
   try {

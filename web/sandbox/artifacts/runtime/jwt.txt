@@ -1,0 +1,7 @@
+<REDACTED: session JWT>
+# format: base64url(header).base64url(payload).base64url(signature)   (compact JWS)
+# header:    {"typ":"JWT","alg":"ES256","kid":"<redacted>"}
+# payload:   {iat, exp, sub, org_uuid, account_uuid, workspace_tagged_id,
+#             filesystem_id, resolved_workspace_tagged_id, org_taints[], workspace_uuid}
+# signature: ECDSA P-256 (ES256), base64url
+# real token kept in jwt_original.txt (git-ignored) — see ../../docs/10-jwt-auth.md

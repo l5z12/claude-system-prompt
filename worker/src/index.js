@@ -17,7 +17,7 @@ const TREE = (() => {
   const t = {};
   for (const f of FILES) {
     (t[f.surface] ??= {});
-    (t[f.surface][f.model] ??= []).push({ path: f.path, file: f.file, name: f.name, order: f.order });
+    (t[f.surface][f.model] ??= []).push({ path: f.path, file: f.file, name: f.name, order: f.order, size: f.size, bin: f.content == null });
   }
   return t;
 })();
@@ -56,6 +56,7 @@ function search(q, surface) {
   let totalMatches = 0;
   for (const f of FILES) {
     if (surface && f.surface !== surface) continue;
+    if (f.content == null) continue;
     const lines = f.content.split('\n');
     const hits = [];
     for (let i = 0; i < lines.length; i++) {
@@ -80,7 +81,7 @@ export default {
 
     if (p === '/raw') {
       const f = BY_PATH.get(url.searchParams.get('path') || '');
-      if (!f) return new Response('not found', { status: 404 });
+      if (!f || f.content == null) return new Response('not found', { status: 404 });
       return new Response(f.content, { headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
     }
     if (p === '/api/tree') {
@@ -88,7 +89,9 @@ export default {
     }
     if (p === '/api/file') {
       const f = BY_PATH.get(url.searchParams.get('path') || '');
-      return f ? json(f) : json({ error: 'file not found' }, 404);
+      if (!f) return json({ error: 'file not found' }, 404);
+      if (f.content == null) return json({ path: f.path, size: f.size, binary: true });
+      return json({ path: f.path, size: f.size, content: f.content });
     }
     if (p === '/api/search') {
       const q = (url.searchParams.get('q') || '').trim();
@@ -99,6 +102,7 @@ export default {
       const left = BY_PATH.get(url.searchParams.get('left') || '');
       const right = BY_PATH.get(url.searchParams.get('right') || '');
       if (!left || !right) return json({ error: 'left and right must both be valid paths' }, 400);
+      if (left.content == null || right.content == null) return json({ error: 'cannot diff a binary or oversized file' }, 400);
       const { ops, add, del } = diffLines(left.content.split('\n'), right.content.split('\n'));
       return json({ left: left.path, right: right.path, add, del, same: left.content === right.content, ops });
     }

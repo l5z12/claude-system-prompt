@@ -1,0 +1,15 @@
+=== /dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_outputs/outputs/sandbox_docs.zip ===
+{
+	"ModTime": "2026-06-04T11:08:30.915573756Z",
+	"ATime": "2026-06-04T11:08:37.902624049Z",
+	"Size": 30298,
+	"Rs": [
+		{
+			"Pos": 0,
+			"Size": 30298
+		}
+	],
+	"Fingerprint": "30298,<REDACTED>",
+	"Dirty": false
+}
+
