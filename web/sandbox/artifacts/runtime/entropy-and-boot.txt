@@ -1,0 +1,4 @@
+hwrng current: virtio_rng.0
+entropy_avail: 256
+boot_id: e23150fe-ecd6-4f3f-8d5f-9bcd96b2128e
+uptime_s: 189.98

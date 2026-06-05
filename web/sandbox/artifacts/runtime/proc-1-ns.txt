@@ -1,13 +1,11 @@
 total 0
-dr-x--x--x 2 root root 0 Jun  4 11:10 .
-dr-xr-xr-x 9 root root 0 Jun  4 08:24 ..
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 cgroup -> cgroup:[4026531835]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 ipc -> ipc:[4026531839]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 mnt -> mnt:[4026531832]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 net -> net:[4026531833]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 pid -> pid:[4026531836]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 pid_for_children -> pid:[4026531836]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 time -> time:[4026531834]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 time_for_children -> time:[4026531834]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 user -> user:[4026531837]
-lrwxrwxrwx 1 root root 0 Jun  4 11:10 uts -> uts:[4026531838]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 cgroup -> cgroup:[4026531835]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 ipc -> ipc:[4026531839]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 mnt -> mnt:[4026531832]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 net -> net:[4026531833]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 pid -> pid:[4026531836]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 pid_for_children -> pid:[4026531836]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 time -> time:[4026531834]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 time_for_children -> time:[4026531834]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 user -> user:[4026531837]
+lrwxrwxrwx 1 root root 0 Jun  5 10:02 uts -> uts:[4026531838]

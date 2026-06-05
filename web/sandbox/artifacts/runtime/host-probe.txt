@@ -1,0 +1,50 @@
+# Host / VMM probe (2026-06-05)
+
+## Device model — virtio-PCI with MSI-X (not legacy MMIO)
+PCI devices (sysfs):
+  0000:00:00.0 class=0x060000 vendor=0x8086 device=0x0d57
+  0000:00:01.0 class=0x018000 vendor=0x1af4 device=0x1042
+  0000:00:02.0 class=0x018000 vendor=0x1af4 device=0x1042
+  0000:00:03.0 class=0x018000 vendor=0x1af4 device=0x1042
+  0000:00:04.0 class=0x018000 vendor=0x1af4 device=0x1042
+  0000:00:05.0 class=0x020000 vendor=0x1af4 device=0x1041
+  0000:00:06.0 class=0xffff00 vendor=0x1af4 device=0x1044
+  decode: 8086:0d57=Intel host bridge; 1af4:1042=virtio-blk(x4 vda-vdd);
+          1af4:1041=virtio-net(eth0); 1af4:1044=virtio-rng
+MSI-X interrupt routing (/proc/interrupts):
+   29:          0 PCI-MSIX-0000:00:06.0   0-edge      virtio5-config
+   30:         10 PCI-MSIX-0000:00:06.0   1-edge      virtio5-input
+   31:          1 PCI-MSIX-0000:00:01.0   0-edge      virtio0-config
+   32:        949 PCI-MSIX-0000:00:01.0   1-edge      virtio0-req.0
+   33:          1 PCI-MSIX-0000:00:02.0   0-edge      virtio1-config
+   34:        240 PCI-MSIX-0000:00:02.0   1-edge      virtio1-req.0
+   35:          1 PCI-MSIX-0000:00:03.0   0-edge      virtio2-config
+   36:          8 PCI-MSIX-0000:00:03.0   1-edge      virtio2-req.0
+   37:          1 PCI-MSIX-0000:00:04.0   0-edge      virtio3-config
+   38:          8 PCI-MSIX-0000:00:04.0   1-edge      virtio3-req.0
+   39:          0 PCI-MSIX-0000:00:05.0   0-edge      virtio4-config
+   40:        222 PCI-MSIX-0000:00:05.0   1-edge      virtio4-input.0
+   41:        217 PCI-MSIX-0000:00:05.0   2-edge      virtio4-output.0
+
+## vCPU is a full, UNTHROTTLED core
+  cpu.cfs_quota_us = -1 (-1 = no limit)
+  cpu.cfs_period_us = 100000
+  cpu.shares = 1024
+  nr_throttled 0
+  throttled_time 0
+  /proc/stat steal=1 (ticks) — ~0 = no hypervisor oversubscription
+  busy-loop cpu/wall = 0.99 (process runs continuously; no descheduling)
+
+## MSRs readable (/dev/cpu/0/msr present; built-in, not a module) but KVM-masked
+  MSR 0xce   = 0x0000000080000000  PLATFORM_INFO
+  MSR 0x8b   = 0x0000000100000000  BIOS_SIGN_ID(ucode)
+  MSR 0x1ad  = <#GP / intercepted>  TURBO_RATIO_LIMIT
+  MSR 0x198  = 0x00000400000003e8  PERF_STATUS
+  MSR 0x17   = 0x0000000000000000  PLATFORM_ID
+  MSR 0x3a   = 0x0000000000000001  FEATURE_CONTROL
+  -> base ratio 0 => 0 MHz nominal
+
+## Virtualization containment
+  /dev/kvm: ABSENT — no nested virtualization
+  IA32_FEATURE_CONTROL=0x1 (lock set, VMX bit clear → guest cannot run KVM)
+  Hypervisor CPUID vendor: KVMKVMKVM

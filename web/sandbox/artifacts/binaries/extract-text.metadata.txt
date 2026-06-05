@@ -1,0 +1,55 @@
+=== extract-text (Anthropic-built Rust CLI; local twin of the server-side file-parser) ===
+file: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=ffeeb697ca7fd45af8d3f4783aa9733f5ccb3688, stripped
+sha256: c17e767d1cae3267f18c873850bd328b9c5530f0c1d7574adbe5fcd465387bde
+build-id: ffeeb697ca7fd45af8d3f4783aa9733f5ccb3688
+
+--- --help ---
+Extract plain text from docx, odt, epub, xlsx, pptx, rtf, html, and ipynb files.
+
+Usage: extract-text [OPTIONS] <PATH>
+
+Arguments:
+  <PATH>
+          The path to the input file
+
+Options:
+      --format <FORMAT>
+          Override the format instead of inferring from the file extension
+          
+          [possible values: docx, odt, epub, xlsx, pptx, rtf, html, htm, ipynb]
+
+      --service-limits
+          Apply the file-parser HTTP service's decompression and output caps.
+          
+          The zip-format extractors (docx, odt, epub, xlsx, pptx) can enforce a per-entry decompressed-size cap, a compression-ratio bomb threshold, and a total-extracted-text cap as a defense against hostile inputs. The service enables all three; this binary enforces only a 1 GiB per-entry cap by default so that large legitimate inputs are not refused. This flag restores the service's tighter caps, which is useful when reproducing a service-side rejection locally. Wins over --max-entry-bytes when both are given.
+
+      --max-entry-bytes <BYTES>
+          Override the per-zip-entry decompressed-size cap (default 1 GiB). The total-output cap and the compression-ratio check stay disabled, so this bounds memory per zip entry only. Ignored for non-zip formats (rtf, html, ipynb) and when --service-limits is set
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+--- Rust crate manifest (artifactory.infra.ant.dev) ---
+aes-0.8.4
+anstream-1.0.0
+anstyle-1.0.13
+bzip2-0.6.1
+clap_builder-4.6.0
+clap_lex-1.1.0
+crc-3.3.0
+deflate64-0.1.10
+hashbrown-0.16.1
+indexmap-2.12.1
+libbz2-rs-sys-0.2.2
+lzma-rust2-0.15.7
+memchr-2.7.5
+ppmd-rust-1.4.0
+quick-xml-0.38.3
+serde_json-1.0.149
+strsim-0.11.1
+zip-7.2.0
+zlib-rs-0.6.3
+zstd-safe-7.2.4

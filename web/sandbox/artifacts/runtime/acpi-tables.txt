@@ -1,0 +1,34 @@
+# ACPI tables — VMM fingerprint & machine model (2026-06-05)
+
+All tables: OEMID='FIRECK' Creator='FCAT' CrRev=0x20240119 (date stamp 2024-01-19)
+=> DEFINITIVELY Firecracker (FIRECK = FireCracker, FCVM* = FireCracker VM).
+   SMBIOS/DMI entirely empty (Cloud Hypervisor would populate it) — corroborates Firecracker.
+
+=== ACPI table set ===
+  APIC  len=   64 rev=6 OEM=FIRECK TableID=FCVMMADT OEMrev=0 Creator=FCAT CrRev=0x20240119
+  DSDT  len= 4129 rev=2 OEM=FIRECK TableID=FCVMDSDT OEMrev=0 Creator=FCAT CrRev=0x20240119
+  FACP  len=  276 rev=6 OEM=FIRECK TableID=FCVMFADT OEMrev=0 Creator=FCAT CrRev=0x20240119
+  MCFG  len=   60 rev=1 OEM=FIRECK TableID=FCMVMCFG OEMrev=0 Creator=FCAT CrRev=0x20240119
+
+=== MADT / APIC (CPU + interrupt controller model) ===
+  Local APIC base=0xfee00000  flags=0x0 (bit0=PCAT_COMPAT/dual-8259)
+  [IO-APIC] id=0 addr=0xfec00000 GSIbase=0
+  [LAPIC]   ACPI_id=0 APIC_id=0 flags=0x1
+
+=== FADT / FACP (ACPI feature set) ===
+  FACS=0x0 DSDT=0x0 PM_profile=0 SCI_INT=0 SMI_CMD=0x0
+  Flags=0x100030  (HW_REDUCED_ACPI=bit20=1, RESET_REG_SUP=bit10=0)
+
+=== MCFG (PCIe ECAM window) ===
+  ECAM base=0xeec00000 segment=0 bus 0-0
+
+=== DSDT device/object names (AML 4-char NameSegs + HIDs) ===
+  strings: DSDT!, BFIRECKFCVMDSDT, FCAT, ._SB_VGEN, _HID, FCVMGID, _CID, VM_Gen_Counter, _DDN, ADDR, ._SB_VCLK, AMZNC10C, VMCLOCK, _STA, _CRS, ._SB_GED_, ACPI0013, ,_EVT, \._SB_VGEN, \._SB_VCLK, ._SB_PC00, _ADR, _SEG, _UID, _CCA, SUPP, _PXM, 7_DSM, S5zM, 4S000, _SUN, _EJ0, _SB_PHPRPCEJ_SUN_SEG[, 4S001, 4S002, 4S003, 4S004, 4S005, 4S006, 4S007
+
+## Interpretation
+  - Hardware-reduced ACPI (FADT bit20=1): no legacy 8259 PIC, no SMI, no PM1 blocks; events via GED.
+  - _SB.GED_ (ACPI0013): Generic Event Device = the ACPI:Ged IRQs 24/25 in /proc/interrupts.
+  - _SB.VGEN (HID FCVMGID, CID VM_Gen_Counter): VM Generation Counter — guest detects snapshot
+    restore via this; explains 'crng reseeded due to virtual machine fork' (see doc 03 snapstart).
+  - _SB.VCLK (HID AMZNC10C, VMCLOCK): Amazon paravirtual clock => Amazon/AWS Firecracker build.
+  - _SB.PC00 + PHPR/PCEJ/_EJ0, slots S000-S007: PCI host bridge with 8 hotplug slots; ECAM 0xeec00000.

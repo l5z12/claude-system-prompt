@@ -11,28 +11,28 @@ Source:   github.com/anthropics/anthropic/api-go  (gen/proto + filestore)
 BuildID:  58d2ccb0478242b16a2161212c63e9be1f9a051c   ← verified against the actual binary
 ```
 
-> **The BuildID is capture-time-specific — the squashfs rclone is rebuilt/swapped often.**
-> Three distinct builds of `/opt/rclone/rclone-filestore` have been observed:
-> | Capture | BuildID | Go | Provenance |
-> |---|---|---|---|
-> | **live session 2026-06-04** (in-sandbox check) | **`8c32c598…`** | — | the one actually serving that session |
-> | static pack `/opt/rclone` | `58d2ccb0…` | go1.25.10 | no VCS stamp (CI/export build) |
-> | static pack `/usr/local/bin` (rootfs baseline) | `3fe76ce4…` | go1.25.9 | `vcs.revision=23e9fa9…`, `vcs.time=2026-04-18`, `vcs.modified=false` |
->
-> So the original `8c32c598…` in this doc was **not stale** — it was correct for the live
-> session; the static pack simply captured *different* builds at a different time. Shipping
-> rclone via the read-only `/dev/vdb` squashfs lets Anthropic refresh the storage client
-> independently of the rootfs, and they evidently do so frequently. Main package for all:
+> **The BuildID is capture-time-specific.** The `/opt/rclone` squashfs is re-attached fresh
+> on every snapstart restore (i.e. per tool-turn — doc 03), so the build hash drifts between
+> turns (e.g. `58d2ccb0…`, `5e06cfce…`, `5c205e4a…`, `94d27ecf…` have all been seen) while the
+> **byte-size stays 30,182,360** — consistent with deterministic `-trimpath` rebuilds of the
+> same source. Shipping rclone via RO `/dev/vdb` lets Anthropic refresh the storage client
+> independently of the rootfs, and they do so frequently. All builds: main package
 > `github.com/anthropics/anthropic/api-go/filestore/cmd/rclone (devel)`, `-trimpath`,
-> `CGO_ENABLED=1`, `GOAMD64=v1`. Newer pack builds also carry an expanded memory API the
+> `CGO_ENABLED=1`, `GOAMD64=v1`, go1.25.x. Newer packs also carry an expanded memory API the
 > rootfs baseline lacks (see `12-memory-api.md`): `memory.api.v1` (`CreateMemoryParams`,
 > `ApiActor`, `ListOrder`), `MemoryPreconditionFailedError`, **`AADScheme`**, **`DeltaHunk`**.
 
 A custom fork of rclone with two proprietary backends (`rclone-filestore`,
-`rclone-memory`) and **everything else stripped**. Live `--help` shows only:
+`rclone-memory`) plus a trimmed command set. Live `--help` shows only:
 `completion`, `help`, `ls`, `mount`, `mount2`, `multimount` (no `copy`/`sync`/`cat`/`rc`/
-`config`/`obscure`/`reveal`/`serve`/`version`/…). Backends list (`rclone help backends`)
-is just the two proprietary ones — no S3/GCS/local/crypt/etc.
+`config`/`obscure`/`reveal`/`serve`/`version`/…).
+
+Registered backends are **`local`, `crypt`, `rclone-filestore`, `rclone-memory`** (the first
+two upstream, the last two proprietary). The library is not stripped down — the whole rclone
+tree is compiled in; only the *exposed command set* (the 6 above) is trimmed. Backend config:
+filestore takes `url`/`filesystem_id`/`auth_token` (url default `http://localhost:9112`,
+*"handles file metadata + GCS operations internally"*); memory takes `url`/`memory_store_id`
+(`memstore_…`)/`auth_token` (`sk-ant-mem-…`).
 
 **`mount` vs `mount2` (in-sandbox, from the embedded module list):** both use
 `github.com/hanwen/go-fuse/v2 v2.8.0` (there is **no** bazil/fuse dep — the bazil mention
@@ -44,9 +44,11 @@ hanwen/go-fuse node/file interface **directly, bypassing rclone's VFS layer** (m
 Getattr`). The **`multimount`** command that actually runs uses `mount2direct` under the
 hood.
 
-**Correction (from live test):** although the `obscure` *package* is linked, the
-`obscure`/`reveal` **CLI subcommands are stripped**, and the algorithm is **not** upstream
-rclone's AES-CTR. The `auth_token` is a **custom ChaCha20** obscure — see *Authentication*.
+The `obscure`/`reveal` CLI subcommands are not exposed, but the obscure algorithm is
+**upstream rclone AES-256-CTR** under a hard-coded key (symbols
+`fs/config/obscure.{Obscure,Reveal,cryptKey,cryptRand}`; no custom marker) — so an `auth_token`
+written to a config is recoverable by any rclone build's `reveal`. It is obfuscation-at-rest,
+not a secret boundary. See `16-binary-analysis-process-api-rclone.md` §2.5.
 
 ## Invocation
 
@@ -184,11 +186,4 @@ rclone maintains one persistent HTTPS connection to `160.79.104.10:443` (api.ant
 
 - **Directory cache TTL**: rclone's in-memory directory listing has a separate TTL (default 5 minutes) from the file data cache. Files created via the REST API directly won't appear in FUSE until the directory cache expires or is invalidated.
 - **Write-through**: writes to FUSE mounts are synced to the filestore backend before the VFS cache expires.
-- **Auth token**: the captured `rclone-mount-config.json` (multimount) has **no** `auth_token` per mount — it's delivered out-of-band in the `POST /mount_root` body (whose schema *does* include `auth_token`) and scrubbed from any persistent config after rclone starts. When the token *is* placed in a per-remote config it is stored **obscured** (the `RC…` blob in `tmp/rclone.conf`). **Corrected by in-sandbox test (round-tripped against the real heap JWT):** this fork's obscure is a **custom ChaCha20** scheme, not upstream rclone's AES-CTR:
-  ```python
-  key = sha256(b"!RCLONE!OBSCURE!DATA!").digest()        # 32-byte key
-  # RC = base64url( IV[16] || ChaCha20(key, nonce=IV[:12]).encrypt(jwt) ), no padding
-  ```
-  It was round-tripped against the real heap JWT in a live session. It is reversible (so
-  obfuscation-at-rest, not real encryption) **but upstream `rclone reveal` will not decode
-  it** — different algorithm and key — and the `reveal` CLI is stripped anyway. See `10`.
+- **Auth token**: the captured `rclone-mount-config.json` (multimount) has **no** `auth_token` per mount — it's delivered out-of-band in the `POST /mount_root` body (whose schema *does* include `auth_token`) and scrubbed from any persistent config after rclone starts. When the token *is* placed in a per-remote config it is stored **obscured** (the `RC…` blob in `tmp/rclone.conf`) using upstream rclone's standard reversible AES-256-CTR obscure — decodable by any rclone build's `reveal`, so obfuscation-at-rest rather than real encryption. See `16-binary-analysis-process-api-rclone.md` §2.5 and `10`.

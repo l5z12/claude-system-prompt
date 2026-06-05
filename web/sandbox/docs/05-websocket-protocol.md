@@ -152,11 +152,13 @@ the binary (this corrects the earlier "only `/mount_root`" description).
 | `/fs_thaw` | `/fs_thaw: thawing / ...`, `done`, `was not frozen (EINVAL)` | `FITHAW` the rootfs after the snapshot/restore |
 | clock sync | `Clock synced (unix_nanos=...)`, `clock_settime failed` | correct the wall clock after restore (from `realtime_unix_nanos`) |
 | drop caches | `Dropping page caches...` | drop the template's page cache |
-| `POST /container_name` | `Updated container name to: ...`, `Failed to persist container name to container_info.json` | inject/verify the per-conversation container name, persisted to `/container_info.json` |
 | `POST /shutdown` | `Received shutdown request via HTTP`, `Shutdown signal sent successfully` | graceful shutdown |
 
-(The live run enumerated **7 control endpoints**: `/mount_root`, `/fs_freeze`, `/fs_thaw`,
-`/write_etc_files`, `/container_name`, `/auth_public_key`, `/shutdown`.)
+Container naming is **not** a control route. The control server exposes **six** endpoints
+(`/mount_root`, `/auth_public_key`, `/write_etc_files`, `/fs_freeze`, `/fs_thaw`,
+`/shutdown`); the per-conversation name arrives as the `expected_container_name` field in the
+WS `ProcessConnection` handshake and is validated/persisted to `/container_info.json`
+(`Updated container name to:` / `Container name mismatch: expected '…'`).
 
 ### Inferred snapstart sequence
 

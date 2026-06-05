@@ -1,0 +1,57 @@
+
+0000:00:00.0  8086:0d57 rev0 class=0x060000 subsys=0000:0000 status=0x0000
+  (no cap list)
+
+0000:00:01.0  1af4:1042 rev1 class=0x018000 subsys=1af4:1042 status=0x0010
+  BAR0: MEM 0x4000000000-0x400007ffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=2 table=BAR0+0x8000 pba=BAR0+0x48000
+
+0000:00:02.0  1af4:1042 rev1 class=0x018000 subsys=1af4:1042 status=0x0010
+  BAR0: MEM 0x4000080000-0x40000fffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=2 table=BAR0+0x8000 pba=BAR0+0x48000
+
+0000:00:03.0  1af4:1042 rev1 class=0x018000 subsys=1af4:1042 status=0x0010
+  BAR0: MEM 0x4000100000-0x400017ffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=2 table=BAR0+0x8000 pba=BAR0+0x48000
+
+0000:00:04.0  1af4:1042 rev1 class=0x018000 subsys=1af4:1042 status=0x0010
+  BAR0: MEM 0x4000180000-0x40001fffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=2 table=BAR0+0x8000 pba=BAR0+0x48000
+
+0000:00:05.0  1af4:1041 rev1 class=0x020000 subsys=1af4:1041 status=0x0010
+  BAR0: MEM 0x4000200000-0x400027ffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=3 table=BAR0+0x8000 pba=BAR0+0x48000
+
+0000:00:06.0  1af4:1044 rev1 class=0xffff00 subsys=1af4:1044 status=0x0010
+  BAR0: MEM 0x4000280000-0x40002fffff (524288B)
+  cap@0x40 Vendor(virtio): COMMON_CFG BAR0 off=0x0 len=56
+  cap@0x50 Vendor(virtio): ISR_CFG BAR0 off=0x2000 len=1
+  cap@0x60 Vendor(virtio): DEVICE_CFG BAR0 off=0x4000 len=4096
+  cap@0x70 Vendor(virtio): NOTIFY_CFG BAR0 off=0x6000 len=4096 notify_mult=4
+  cap@0x84 Vendor(virtio): PCI_CFG BAR0 off=0x0 len=0
+  cap@0x98 MSI-X: vectors=2 table=BAR0+0x8000 pba=BAR0+0x48000

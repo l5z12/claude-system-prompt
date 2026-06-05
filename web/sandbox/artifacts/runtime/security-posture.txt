@@ -1,0 +1,8 @@
+=== LSM / SELinux / seccomp posture ===
+active LSMs (/sys/kernel/security/lsm): ''  (empty = none enforcing)
+/sys/fs/selinux present: yes (compiled in, not loaded)
+loaded kernel modules: 0
+PID1 Seccomp: Seccomp:	0
+PID1 NoNewPrivs: NoNewPrivs:	0
+PID1 CapEff: CapEff:	000001ffffffffff
+PID1 CapBnd: CapBnd:	000001fffeffffff

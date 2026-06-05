@@ -1,0 +1,35 @@
+# Anthropic sandbox egress / TLS-inspection CAs
+# (public certificates — these are the MITM roots injected into the trust store)
+
+=== egress-gateway-ca-production.crt ===
+subject=O = Anthropic, CN = sandbox-egress-gateway-production Egress Gateway CA
+issuer=O = Anthropic, CN = sandbox-egress-gateway-production Egress Gateway CA
+notBefore=Feb 13 22:46:16 2026 GMT
+notAfter=Feb 11 22:46:15 2036 GMT
+X509v3 Basic Constraints: critical
+    CA:TRUE
+
+=== egress-gateway-ca-staging.crt ===
+subject=O = Anthropic, CN = sandbox-egress-gateway-staging Egress Gateway CA
+issuer=O = Anthropic, CN = sandbox-egress-gateway-staging Egress Gateway CA
+notBefore=Feb 13 22:13:01 2026 GMT
+notAfter=Feb 11 22:13:00 2036 GMT
+X509v3 Basic Constraints: critical
+    CA:TRUE
+
+=== swp-ca-production.crt ===
+subject=O = Anthropic, CN = sandbox-egress-production TLS Inspection CA
+issuer=O = Anthropic, CN = sandbox-egress-production TLS Inspection CA
+notBefore=Jul 22 21:34:59 2025 GMT
+notAfter=Jul 20 21:34:58 2035 GMT
+X509v3 Basic Constraints: critical
+    CA:TRUE
+
+=== swp-ca-staging.crt ===
+subject=O = Anthropic, CN = sandbox-egress-staging TLS Inspection CA
+issuer=O = Anthropic, CN = sandbox-egress-staging TLS Inspection CA
+notBefore=Jul 21 22:26:25 2025 GMT
+notAfter=Jul 19 22:26:24 2035 GMT
+X509v3 Basic Constraints: critical
+    CA:TRUE
+

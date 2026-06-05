@@ -1,12 +1,6 @@
-/sys/fs/cgroup/memory/memory.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/memory.memsw.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/memory.kmem.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/memory.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/<REDACTED>/memory.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/<REDACTED>/memory.memsw.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/<REDACTED>/memory.kmem.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/<REDACTED>/memory.kmem.tcp.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/memory.memsw.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/memory.kmem.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/process_api/memory.kmem.tcp.limit_in_bytes: 9223372036854771712
-/sys/fs/cgroup/memory/memory.kmem.tcp.limit_in_bytes: 9223372036854771712
+# cgroup v1 limits (this VM)
+/sys/fs/cgroup/memory/memory.limit_in_bytes             = 9223372036854771712
+/sys/fs/cgroup/memory/memory.usage_in_bytes             = 101490688
+/sys/fs/cgroup/cpu/cpu.cfs_quota_us                     = -1
+/sys/fs/cgroup/cpu/cpu.cfs_period_us                    = 100000
+/sys/fs/cgroup/pids/pids.max                            = 

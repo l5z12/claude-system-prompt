@@ -1,15 +1,19 @@
-=== /dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_outputs/outputs/sandbox_docs.zip ===
-{
-	"ModTime": "2026-06-04T11:08:30.915573756Z",
-	"ATime": "2026-06-04T11:08:37.902624049Z",
-	"Size": 30298,
-	"Rs": [
-		{
-			"Pos": 0,
-			"Size": 30298
-		}
-	],
-	"Fingerprint": "30298,<REDACTED>",
-	"Dirty": false
-}
-
+/dev/shm/rclone-vfscache
+/dev/shm/rclone-vfscache/vfs
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_transcripts
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_transcripts/transcripts
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_outputs
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_outputs/outputs
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_tool_results
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_tool_results/tool_results
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_uploads
+/dev/shm/rclone-vfscache/vfs/claude_chat_<REDACTED>_mnt_user-data_uploads/uploads
+/dev/shm/rclone-vfscache/vfsMeta
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_transcripts
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_transcripts/transcripts
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_outputs
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_outputs/outputs
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_tool_results
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_tool_results/tool_results
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_uploads
+/dev/shm/rclone-vfscache/vfsMeta/claude_chat_<REDACTED>_mnt_user-data_uploads/uploads

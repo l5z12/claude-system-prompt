@@ -1,0 +1,144 @@
+=== rclone --help (commands) ===
+Available commands:
+  completion  Generate the autocompletion script for the specified shell
+  help        Show help for rclone commands, flags and backends.
+  ls          List the objects in the path with size and path.
+  mount       Mount the remote as file system on a mountpoint.
+  mount2      Mount the remote as file system on a mountpoint.
+  multimount  Mount multiple filestore filesystems simultaneously
+
+Use "rclone [command] --help" for more information about a command.
+
+=== help backend rclone-filestore ===
+### Standard options
+
+Here are the Standard options specific to rclone-filestore (Filestore Backend).
+
+#### --rclone-filestore-url
+
+Filestore service URL (handles file metadata + GCS operations internally)
+
+Properties:
+
+- Config:      url
+- Env Var:     RCLONE_RCLONE_FILESTORE_URL
+- Type:        string
+- Default:     "http://localhost:9112"
+
+#### --rclone-filestore-filesystem-id
+
+Filesystem ID to use
+
+Properties:
+
+- Config:      filesystem_id
+- Env Var:     RCLONE_RCLONE_FILESTORE_FILESYSTEM_ID
+- Type:        string
+- Required:    true
+
+#### --rclone-filestore-auth-token
+
+Authentication token (JWT)
+
+**NB** Input to this must be obscured - see [rclone obscure](/commands/rclone_obscure/).
+
+Properties:
+
+- Config:      auth_token
+- Env Var:     RCLONE_RCLONE_FILESTORE_AUTH_TOKEN
+- Type:        string
+- Required:    false
+
+### Advanced options
+
+Here are the Advanced options specific to rclone-filestore (Filestore Backend).
+
+#### --rclone-filestore-description
+
+Description of the remote.
+
+Properties:
+
+- Config:      description
+- Env Var:     RCLONE_RCLONE_FILESTORE_DESCRIPTION
+- Type:        string
+- Required:    false
+
+
+=== help backend rclone-memory ===
+### Standard options
+
+Here are the Standard options specific to rclone-memory (Memory Store backend).
+
+#### --rclone-memory-url
+
+Memory service URL (e.g. http://localhost:9430)
+
+Properties:
+
+- Config:      url
+- Env Var:     RCLONE_RCLONE_MEMORY_URL
+- Type:        string
+- Required:    true
+
+#### --rclone-memory-memory-store-id
+
+Memory store ID (memstore_...)
+
+Properties:
+
+- Config:      memory_store_id
+- Env Var:     RCLONE_RCLONE_MEMORY_MEMORY_STORE_ID
+- Type:        string
+- Required:    true
+
+#### --rclone-memory-auth-token
+
+Store-scoped JWT (sk-ant-mem-...)
+
+**NB** Input to this must be obscured - see [rclone obscure](/commands/rclone_obscure/).
+
+Properties:
+
+- Config:      auth_token
+- Env Var:     RCLONE_RCLONE_MEMORY_AUTH_TOKEN
+- Type:        string
+- Required:    true
+
+#### --rclone-memory-cache-ttl
+
+Content cache TTL (default 1h)
+
+Properties:
+
+- Config:      cache_ttl
+- Env Var:     RCLONE_RCLONE_MEMORY_CACHE_TTL
+- Type:        Duration
+- Default:     1h0m0s
+
+### Advanced options
+
+Here are the Advanced options specific to rclone-memory (Memory Store backend).
+
+#### --rclone-memory-description
+
+Description of the remote.
+
+Properties:
+
+- Config:      description
+- Env Var:     RCLONE_RCLONE_MEMORY_DESCRIPTION
+- Type:        string
+- Required:    false
+
+
+=== help backends (registered) ===
+All rclone backends:
+
+  local        Local Disk
+  crypt        Encrypt/Decrypt a remote
+  rclone-filestore Filestore Backend
+  rclone-memory Memory Store backend
+
+To see more info about a particular backend use:
+  rclone help backend <name>

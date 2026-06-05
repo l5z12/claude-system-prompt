@@ -1,0 +1,10 @@
+=== rclone-filestore-rootfs (baseline baked into the RO rootfs at /usr/local/bin) ===
+file: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=3fe76ce4930fbf9fc1a896aa7acd12153f7acc8a, for GNU/Linux 3.2.0, stripped
+sha256: c6d42de1484c7aa5fb652bb9ce747762340178148afe5e7e3ae567e2308940f0
+build-id: 3fe76ce4930fbf9fc1a896aa7acd12153f7acc8a
+go: go1.25.9
+
+vs /opt squashfs build (rclone-filestore): build-id 5c205e4a..., go1.25.10, 30182360 bytes.
+Memory-API surface (rootfs baseline is OLDER, lacks the expanded API):
+  rootfs   : memory.api.v1(stable)=0  DeltaHunk=0  AADScheme=32
+  squashfs : memory.api.v1(stable)=52 DeltaHunk=22 AADScheme=32

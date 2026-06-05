@@ -155,7 +155,8 @@ Everything in this section was directly verified via live system inspection.
 
 ## Things That Didn't Work
 
-- **`/dev/mem`** — blocked by `CONFIG_STRICT_DEVMEM` despite being root
+- **`/dev/mem`** — kernel RAM blocked by `CONFIG_STRICT_DEVMEM`, but the legacy low-1 MB
+  reserved region and device MMIO remain readable (used to read the vmclock / VM-Gen-ID; see doc 07)
 - **`strace`** — not installed
 - **gRPC reflection** — server doesn't support it
 - **Memory API gRPC** — not reachable from public `api.anthropic.com`

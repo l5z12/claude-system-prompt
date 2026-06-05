@@ -1,0 +1,9 @@
+=== virtio-pci device topology ===
+  virtio0   virtio-blk     modalias=virtio:d00000002v00001AF4
+  virtio1   virtio-blk     modalias=virtio:d00000002v00001AF4
+  virtio2   virtio-blk     modalias=virtio:d00000002v00001AF4
+  virtio3   virtio-blk     modalias=virtio:d00000002v00001AF4
+  virtio4   virtio-net     modalias=virtio:d00000001v00001AF4
+  virtio5   virtio-rng     modalias=virtio:d00000004v00001AF4
+
+PF_VSOCK registered: 1 ; /dev/vsock: crw------- 1 root root 10, 258 May 29 19:43 /dev/vsock

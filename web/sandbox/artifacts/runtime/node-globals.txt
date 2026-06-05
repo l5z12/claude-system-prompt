@@ -1,0 +1,23 @@
+/home/claude/.npm-global/lib
++-- @mermaid-js/mermaid-cli@11.12.0
++-- docx@9.6.1
++-- graphviz@0.0.9
++-- markdown-pdf@11.0.0
++-- markdown-toc@1.2.0
++-- markdownlint-cli@0.48.0
++-- markdownlint-cli2@0.22.0
++-- marked@18.0.2
++-- pdf-lib@1.17.1
++-- pdfjs-dist@5.6.205
++-- playwright@1.56.0
++-- pptxgenjs@4.0.1
++-- react-dom@19.2.5
++-- react-icons@5.6.0
++-- react@19.2.5
++-- remark-cli@12.0.1
++-- remark-preset-lint-recommended@7.0.1
++-- sharp@0.34.5
++-- ts-node@10.9.2
++-- tsx@4.21.0
+`-- typescript@6.0.3
+

@@ -213,6 +213,21 @@ earlier gRPC-reflection probes failed).
 - **Auth**: `AuthorizationMetadata` message + `Authorization:` header (same Bearer JWT)
 - **CA cert required**: the egress `sandbox-egress-production` CA
 - **Proto messages confirmed in the binary**: `ListDirectoryResponse`, `ReadFileRequest` (with `.Range`), `ImportFilesRequest`, `Directory`, `File`, `FilesystemFile`, `AuthorizationMetadata`
+- **Additional methods present in the binary** beyond the eight REST endpoints above:
+  `ListDirectoryRecursiveCursor` (recursive listing), `ImportFiles` (distinct from `ImportZip`),
+  and a delete family — `DeleteFile`, `DeleteFiles`, `DeleteFileWithBackupDir`,
+  `DeleteFilesWithBackupDir` (the `…WithBackupDir` variants mirror rclone's `--backup-dir`).
 
 The REST surface (`/v1/filestore/fs/…`) documented above is the easiest to call by
 hand and was confirmed working; the Connect RPC surface is what the FUSE client uses.
+
+## Related: the file-parser service
+
+Distinct from the filestore (which moves bytes), a separate **file-parser HTTP service**
+extracts *plain text* from uploaded documents. Evidence: the rootfs binary
+`/usr/local/bin/extract-text` (Anthropic-built Rust) is its local twin and handles
+`docx, odt, epub, xlsx, pptx, rtf, html, ipynb`. Its `--help` documents the service's
+hostile-input defenses for the zip-based formats (docx/odt/epub/xlsx/pptx): a per-entry
+decompressed-size cap, a compression-ratio (zip-bomb) threshold, and a total-extracted-text
+cap — all enabled service-side, whereas the local binary applies only a 1 GiB per-entry cap
+unless `--service-limits` is passed. See `../artifacts/binaries/extract-text.metadata.txt`.

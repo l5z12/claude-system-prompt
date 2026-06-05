@@ -18,7 +18,7 @@ The session JWT is the primary credential used by rclone-filestore to authentica
 - **ES256** (ECDSA with SHA-256) — signed by Anthropic's private key
 - **6-hour TTL** from issuance (exp − iat = 21600s, confirmed)
 - **Session-scoped** — the `filesystem_id` is a *claim inside the JWT* (see payload), so the token is cryptographically bound to exactly one chat filesystem
-- **Not persisted in cleartext** — delivered via the `POST /mount_root` body and scrubbed from persistent configs; if placed in a per-remote rclone config it is stored **obscured**. In-sandbox testing shows this fork uses a **custom ChaCha20** obscure (key = SHA256(`!RCLONE!OBSCURE!DATA!`), 16-byte IV, base64url) — reversible (so obfuscation, not encryption) but **not** decodable by upstream `rclone reveal`, and the `reveal` CLI is stripped. At runtime the JWT lives in rclone's heap.
+- **Not persisted in cleartext** — delivered via the `POST /mount_root` body and scrubbed from persistent configs; if placed in a per-remote rclone config it is stored **obscured** using upstream rclone's standard reversible AES-256-CTR obscure (symbols `fs/config/obscure.{Obscure,Reveal,cryptKey,cryptRand}`, no custom marker). That means it *is* decodable by any rclone build's `reveal`; the only in-sandbox barrier is that the `obscure`/`reveal` subcommands aren't exposed. So it is obfuscation-at-rest, not encryption. At runtime the JWT lives in rclone's heap. See `16-binary-analysis-process-api-rclone.md` §2.5.
 - **Extractable** at runtime via `/proc/<rclone_pid>/mem` (with root access)
 
 ## JWT Header

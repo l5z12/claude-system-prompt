@@ -1,0 +1,22 @@
+=== file ===
+rclone-filestore: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=5c205e4ab462545a084df9a70d0c2ac7ea9f10f8, for GNU/Linux 3.2.0, stripped
+
+=== sha256 ===
+2fb389a4bdd839979443f4c6b20b1858dc5c778bde6a54c33d11b08e098a562f
+
+=== build-id ===
+  GNU                  0x00000014	NT_GNU_BUILD_ID (unique build ID bitstring)
+    Build ID: 5c205e4ab462545a084df9a70d0c2ac7ea9f10f8
+
+=== Go toolchain ===
+      2 go1.25.10
+
+=== Go build settings ===
+build	-buildmode=exe
+build	-compiler=gc
+build	-trimpath=true
+build	CGO_ENABLED=1
+build	GOAMD64=v1
+build	GOARCH=amd64
+build	GOOS=linux
+mod	github.com/anthropics/anthropic/api-go/filestore/cmd/rclone	(devel)	

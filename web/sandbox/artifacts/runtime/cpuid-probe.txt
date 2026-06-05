@@ -1,0 +1,30 @@
+Leaf 0: max_basic=0xd  vendor=GenuineIntel
+Leaf 1: eax=0x00050657  Family=6(0x6) Model=0x55 Stepping=7
+        DisplayFamily=6 DisplayModel=0x55 → Skylake-SP/Cascade-Lake/Cooper-Lake (stepping distinguishes)
+  ecx=0xfffa3223 edx=0x0f8bfbff (feature bits)
+  Local APIC ID=0, LogicalProcs=1
+Leaf 7 ebx=0xd19f2ffb ecx=0x00000804 edx=0xac000400
+  avx512f=1 avx512bw=1 avx512vl=1 avx512_vnni=1 avx512_bf16=0
+  sha=0 sgx=0
+HV leaf 0x40000000: max=0x40000001  sig=KVMKVMKVM
+KVM features (eax=0x01007efb):
+  KVM_CLOCKSOURCE
+  KVM_NOP_IO_DELAY
+  KVM_CLOCKSOURCE2
+  KVM_ASYNC_PF
+  KVM_STEAL_TIME
+  KVM_PV_EOI
+  KVM_PV_UNHALT
+  KVM_PV_TLB_FLUSH
+  KVM_ASYNC_PF_VMEXIT
+  KVM_PV_SEND_IPI
+  KVM_PV_POLL_CONTROL
+  KVM_PV_SCHED_YIELD
+  KVM_ASYNC_PF_INT
+Brand string: "Intel(R) Xeon(R) Processor @ 2.80GHz"
+Cache topology (leaf 4):
+  L1 Data: 32 KB  (8x1x64x64)
+  L1 Instr: 32 KB  (8x1x64x64)
+  L2 Unified: 1024 KB  (16x1x64x1024)
+  L3 Unified: 33792 KB  (11x1x64x49152)
+Topology leaf B: x2APIC ID=0

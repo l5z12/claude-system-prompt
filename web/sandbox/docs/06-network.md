@@ -3,8 +3,8 @@
 ## Interface
 
 ```
-eth0: 192.0.2.2/24
-Gateway: 192.0.2.1 (host, MAC: 02:fc:00:00:00:05)
+eth0: 192.0.2.2/24  (MAC 02:fc:00:00:00:01)
+Gateway: 192.0.2.1 (host tap, MAC 02:fc:00:00:00:05)
 ```
 
 The `192.0.2.0/24` range is RFC 5737 "TEST-NET-1" — a documentation/testing range that is not internet-routable. Anthropic uses it for internal VM-to-host communication.
@@ -122,6 +122,23 @@ Notably **`anthropic.com` (apex) and `docs.anthropic.com` are blocked** — only
 `api.anthropic.com` is reachable. Also blocked in testing: `example.com`, `api.openai.com`,
 `google.com`, `huggingface.co`. So there is no way to reach Anthropic's docs/marketing
 hosts from inside the VM — only the API endpoint.
+
+Because `archive.ubuntu.com`/`security.ubuntu.com` are on the allowlist, **`apt-get` works for
+Ubuntu's own repos** (e.g. `apt-get install acpica-tools` succeeds as root via the TLS proxy
+using the installed Anthropic egress CAs). Third-party apt repos are still blocked —
+`deb.nodesource.com` returns `403 Forbidden`.
+
+**169.254.169.254 (EC2 IMDS):** requests are **intercepted by the egress proxy** and return
+`Destination IP is in a private/reserved range` — no cloud metadata (instance type, IAM
+credentials) is accessible to the VM. Anthropic explicitly blocks IMDS access.
+
+## Host gateway surface (192.0.2.1)
+
+The host TAP interface at 192.0.2.1 is **reachable** (TCP RST returned — not timeout),
+confirming the guest→host routing path via virtio-net works. However, **no services are
+exposed**: all probed ports (22, 80, 443, 2376, 8080, 9090, 8500, 4001, 2379, 5000, 9091)
+return *Connection refused*. The Firecracker API socket is host-side Unix domain only, not
+exposed over TCP to guests (the MAC pair is noted under *Interface* above).
 
 ## iptables
 

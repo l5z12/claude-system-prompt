@@ -4,6 +4,33 @@
 
 VMs do not cold-boot for each conversation. Instead, Anthropic uses Firecracker's snapshot/restore capability to start conversations in milliseconds from a pre-initialized VM state.
 
+> **Confirmed at turn granularity (2026-06-05):** restore happens **per assistant tool-turn**,
+> not just once per conversation. Evidence: within one conversation, `/proc/uptime` resets to
+> a few minutes each turn while the conversation is hours old, `boot_id` changes, and dmesg
+> shows the restore live — `random: crng reseeded due to virtual machine fork` plus virtio-blk
+> **capacity-change** events as the real backing files replace 256 GiB placeholders. The
+> writable root (`/dev/vda`) **delta persists across turns** (files written earlier survive),
+> while read-only squashfs images (`/dev/vdb` rclone, `/dev/vdc`/`vdd` skills) are
+> **re-attached fresh** — which is why the rclone build hash drifts between turns (doc 08).
+>
+> **The detection mechanism is an ACPI VM Generation Counter** — Firecracker exposes a
+> `_SB.VGEN` device (HID `FCVMGID`, CID `VM_Gen_Counter`, counter at guest-phys `0xDFFF0`) in
+> its DSDT (doc 02). The plumbing, visible in the decompiled DSDT: a Generic Event Device
+> (`_SB.GED`, `ACPI0013`) wired to two interrupts, with an `_EVT` handler that routes
+> **event 5 → `Notify(VGEN, 0x80)`** and **event 6 → `Notify(VCLK, 0x80)`**. On restore the host
+> raises these; the guest kernel sees the generation-counter change, treats it as a "fork," and
+> reseeds the CRNG, while the Amazon `vmclock` (`_SB.VCLK`, HID `AMZNC10C`) resyncs wall-clock
+> time so time-of-day stays correct even though monotonic uptime resets. Corroborating this, the
+> two `ACPI:Ged` IRQs (24/25) in `/proc/interrupts` each show a count of exactly **1** per turn —
+> the single restore notification. The generation value itself is a **host-assigned 16-byte GUID**
+(a sample read via `/dev/mem`: `aad18409-…`, captured in `../artifacts/runtime/host-os-probe.txt`)
+that differs on every restore — exactly the change the kernel detects. The companion Amazon
+`vmclock` structure (magic `VCLK`) carries a host-set `disruption_marker`, though in this build
+its counter is flagged invalid and it serves no active time (the guest runs on kvm-clock/TSC).
+Both the kvmclock and the guest TSC are **rebased on every restore** (uptime and raw TSC both
+read ~the same small value), so the guest can recover its own *restore* wall-clock timestamp
+(`now − uptime`) but **not the host's uptime or boot time** — those are hidden by the rebasing.
+
 ## Two Boot Modes
 
 The `process_api` binary supports two init paths, selected at runtime:

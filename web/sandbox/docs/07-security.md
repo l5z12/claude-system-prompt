@@ -27,6 +27,16 @@ All Linux-level security mechanisms (capabilities, seccomp, AppArmor) are intent
 - Clears all cached file data from the snapshot template
 - Ensures no previous session's file data persists
 
+**Kernel memory is not introspectable from userspace** (even as root with full caps):
+- **`STRICT_DEVMEM`** is enforced — `/dev/mem` can map the legacy low-1 MB region and device
+  MMIO, but **mmap of kernel RAM is denied**. Confirmed by trying to read the kvmclock pvclock
+  structure (GPA known from the MSR) — the mmap fails.
+- Although `kptr_restrict=0`, the kernel was built **without `KALLSYMS_ALL`**, so `/proc/kallsyms`
+  omits *data* symbols (`page_offset_base` is absent). With the KASLR direct-map base hidden,
+  translating a physical address for `/proc/kcore` is impractical.
+- Net effect: host-written structures that live in kernel RAM (pvclock, etc.) cannot be read out,
+  so e.g. the host's `PVCLOCK_TSC_STABLE` flag is only *behaviorally* inferable.
+
 ### 3. Auth Token Scrubbing
 
 process_api performs token scrubbing in two stages:
@@ -106,6 +116,16 @@ Only `CAP_SYS_RESOURCE` is missing. All others are present. This is **not a secu
 - Skill volumes (vdc, vdd) are read-only squashfs images
 - `/mnt/skills/public`, `/mnt/skills/examples`, `/mnt/transcripts`, `/mnt/user-data/uploads` are all read-only mounts
 - Only `/mnt/user-data/outputs` is writable (backed by filestore API)
+
+### 10. Kernel posture (confirmed)
+
+- **No LSM is loaded.** `/sys/kernel/security/lsm` is empty; SELinux is compiled in
+  (`CONFIG_SECURITY_SELINUX=y`) but inert, and no AppArmor/Landlock is active.
+- **Module-less kernel.** Not just the `nomodule` cmdline — the kernel is built without module
+  support (`CONFIG_MODULES` absent) and `/proc/modules` is empty, so LKMs cannot be loaded at all.
+- **Standard hardening on:** KASLR (`RANDOMIZE_BASE`/`RANDOMIZE_MEMORY`), `STRICT_KERNEL_RWX`,
+  retpoline, `FORTIFY_SOURCE`, `HARDENED_USERCOPY`, `STACKPROTECTOR_STRONG`, `VMAP_STACK`.
+  These harden the guest but, like the items above, are secondary to the VM boundary.
 
 ## What Claude Can Do Inside the Sandbox
 

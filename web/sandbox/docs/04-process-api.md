@@ -317,7 +317,7 @@ available.` — the transport may be plaintext, but app-layer auth still applies
 | `/fs_thaw` | `/fs_thaw: thawing / ...`; `done`; `failed, returning 500`; `/ was not frozen (EINVAL), nothing to thaw`; `open(/) for thaw failed:` | `FITHAW` the rootfs after snapshot/restore |
 | clock sync | `Clock synced (unix_nanos=<…>)`; `clock_settime failed:` | set wall clock from `realtime_unix_nanos` |
 | drop caches | `Dropping page caches...` | drop the template page cache |
-| container name | `Received … ; Updated container name to: <…>`; `Failed to persist container name to container_info.json:` | inject/verify per-conversation name in `/container_info.json` |
+| container name | `Received … ; Updated container name to: <…>`; `Failed to persist container name to container_info.json:` | **not a route** — set via the `expected_container_name` field in the WS `ProcessConnection` handshake and persisted to `/container_info.json` |
 | shutdown | `Received shutdown request via HTTP`; `Shutdown signal sent successfully`; `Failed to send shutdown signal:`; `Control server shutting down`; `shutdown complete` | graceful stop |
 
 **Inferred restore order:** clock sync → `/auth_public_key` → `/write_etc_files` →

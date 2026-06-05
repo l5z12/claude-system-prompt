@@ -1,0 +1,6 @@
+=== magika (Google Magika; ONNX deep-learning file-type detector; vendored public tool) ===
+file: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=d54ca6cab1241fe60c3bddb61b2ab69835919be3, not stripped
+version: magika 1.0.1 standard_v3_3
+sha256: 0bbacaccd0cbf666bb9371fac958395a1c66b590ed05e4393ce3415e9b68f0d6
+build-id: d54ca6cab1241fe60c3bddb61b2ab69835919be3
+note: bundles the ONNX model + onnxruntime; not built from Anthropic's registry.

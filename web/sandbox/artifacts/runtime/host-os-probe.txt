@@ -1,0 +1,49 @@
+# Host OS / hypervisor probe (2026-06-05)
+
+## What the guest CAN determine about the host
+Host runs LINUX + KVM (KVMKVMKVM signature). Kernel version is bounded by the KVM
+paravirt feature set exposed to the guest:
+
+0x40000000: max_leaf=0x40000001 sig=KVMKVMKVM
+0x40000001: KVM_FEATURES=0x01007efb  KVM_HINTS(edx)=0x00000000
+  => KVM_HINTS_REALTIME not set
+  feature bits: SCHED_YIELD(b13,>=5.7)=1 ASYNC_PF_INT(b14,>=5.8)=1 MSI_EXT_DEST_ID(b15,>=5.10*)=0
+
+  Reasoning: ASYNC_PF_INT (bit14) was added in Linux 5.8 -> HOST KERNEL >= 5.8.
+  PV_SCHED_YIELD (>=5.7) present; MSI_EXT_DEST_ID absent (Intel HW-dependent, not a bound).
+  No KVM_HINTS_REALTIME -> vCPU is NOT formally pinned (near-zero steal measured earlier
+  reflects an uncontended host at that moment, not a hard guarantee).
+
+## Host clock exposure
+  /dev/ptp0 driver = 'KVM virtual PTP' (ptp_kvm; reads host CLOCK_REALTIME)
+ptp caps: max_adj=0 n_pins=0 cross_ts=1
+  cross_timestamping=1 => host supports KVM_HC_CLOCK_PAIRING (>=4.11).
+
+## Host-populated memory structures (read via /dev/mem, low-1MB)
+vmclock@0xDE000: magic=0x4b4c4356 'VCLK' size=4096 version=1 counter_id=255 time_type=0
+  seq_count=2 disruption_marker=0x0000000000000001 flags=0x0000000000000300
+  raw[0:48]: 56434c4b001000000100ff0002000000 01000000000000000003000000000000 00000000000000000000000000000000 
+VM Generation ID@0xDFFF0: aad1840948e6b915100a9ec5c1fc01bf
+
+  vmclock: Linux 'VCLK' ABI; present but counter_id=0xFF(INVALID)+time fields zeroed => dormant.
+  disruption_marker=1 (host-set on snapshot/restore disruption).
+  VM Generation ID: host-assigned 16-byte GUID, REGENERATED EVERY RESTORE (sample above;
+  differs each turn). This is the value the guest kernel watches to detect restore (doc 03).
+
+## Distro inference (cannot read host /etc/os-release across the VM boundary)
+  Amazon vmclock (AMZNC10C) + Amazon Firecracker (FIRECK) + Cascade Lake host => AWS EC2.
+  Host OS is therefore almost certainly Amazon Linux (AL2/AL2023) or an AWS-internal
+  Nitro/Firecracker host Linux. Not directly confirmable from inside the guest.
+
+## Additional host-side channels (follow-up probe)
+- Network-stack fingerprint: host gateway 192.0.2.1 answers closed ports with TCP RST,
+  IP TTL=64 => host stack is Linux/Unix (Windows=128). Independent of the KVM evidence.
+- vsock: /dev/vsock present but IOCTL_VM_SOCKETS_GET_LOCAL_CID returns 0xFFFFFFFF
+  (VMADDR_CID_ANY) => no CID assigned; vsock is inert, host transport is TCP-only.
+- kvmclock structures located via MSR readback (GPAs ~0x284e000/0x284d008) but CONTENTS
+  UNREADABLE: STRICT_DEVMEM denies /dev/mem on kernel RAM; kallsyms lacks data symbols
+  (no KALLSYMS_ALL) so page_offset_base is hidden and /proc/kcore translation is impractical.
+  => host PVCLOCK_TSC_STABLE flag only behaviorally inferable (kernel uses tsc clocksource).
+- kvmclock + guest TSC are REBASED on every restore (uptime ~23s, TSC ~23s) -> the guest
+  cannot derive host uptime/boot-time; only the restore wall-clock timestamp is recoverable
+  (now-uptime). Across turns, wall-clock advanced ~50 min while VM uptime stayed ~23s.
