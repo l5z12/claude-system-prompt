@@ -1,0 +1,37 @@
+# process_api --block-local-connections : evidence (from /proc/1/exe, sha256 06e438d1...)
+
+## clap flag definition
+  long: block-local-connections   env: BLOCK_LOCAL_CONNECTIONS   field: block_local_connections
+  help: "Block connections from localhost and own interface IPs"
+
+## crate evidence (process_api.cargo-deps.txt)
+  nix-0.29.0          -> getifaddrs(3) for own-interface enumeration
+  tokio-vsock-0.7.2   -> vsock listener + source-CID check
+  tokio-tungstenite-0.24.0 / tungstenite-0.24.0 -> WS server on :2024
+
+## runtime SECURITY log strings (verbatim, embedded in binary)
+  [CONTROL] [SECURITY] Rejected connection from 
+  [CONTROL] [SECURITY] Rejected connection from non-host CID 
+  [SECURITY] Blocking connections from local IPs: 
+  [SECURITY] Rejected WebSocket connection from local IP 
+  [SECURITY] Rejecting vsock connection from non-host CID 
+
+## logic (reconstructed)
+  startup: local_set = {127.0.0.1, ::1} U getifaddrs() ; log the set
+  per-conn (FIRST gate, both :2024 and :2025, before WS handshake/JWT):
+    TCP  : reject if peer_addr().ip() in local_set   (allowed: host 192.0.2.1)
+    vsock: reject if source CID != 2                 (allowed: host CID 2)
+  reject => socket closed immediately. Network-origin check only (no crypto).
+
+## EMPIRICAL: is the set per-connection or a startup snapshot? (tested in-sandbox)
+  baseline 127.0.0.1:2024            -> BLOCKED (immediate close after accept)
+  baseline 192.0.2.2:2024 (own eth0) -> BLOCKED
+  [ip addr add 10.123.45.6/32 dev lo]  <-- AFTER process_api startup
+  10.123.45.6:2024 (new post-startup IP) -> ACCEPTED (held open for WS handshake)
+  10.123.45.6:2025 (control server)      -> ACCEPTED
+  => CONCLUSION: the local-IP set is built ONCE at startup (getifaddrs) and is NOT
+     refreshed per connection. Any address added afterward is treated as non-local and
+     bypasses the gate on BOTH :2024 and :2025. Requires CAP_NET_ADMIN (VM has full caps);
+     impact bounded since in-VM code is already root. (No `dummy` module in the monolithic
+     kernel, so new *interfaces* can't be created; secondary IPs on lo/eth0 are the vector.)
+     Test scope: accept-vs-reject only; the WS/control protocol was not driven.

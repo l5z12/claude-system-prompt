@@ -30,7 +30,9 @@ Everything in this section was directly verified via live system inspection.
 - ✅ CreateProcess struct fields reconstructed
 - ✅ OOM monitoring via cgroup polling
 - ✅ Token scrubbing patterns: `_TOKEN`, `_SECRET`, `_PASSWORD`, `API_KEY`
-- ✅ `--block-local-connections` prevents in-VM access to port 2024
+- ✅ `--block-local-connections` prevents in-VM access to ports 2024/2025 — **but** the local-IP
+  set is a one-time startup snapshot (`getifaddrs`), so an IP added post-startup (needs
+  `CAP_NET_ADMIN`, which the VM has) bypasses it; verified empirically (doc 04 §8a)
 
 ### Storage
 - ✅ rclone-filestore binary (~30MB Go binary on squashfs)

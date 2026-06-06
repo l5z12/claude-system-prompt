@@ -377,6 +377,50 @@ Routes:
 
 ---
 
+## 8a. `--block-local-connections` — exact logic
+
+The flag's own help string is *"Block connections from localhost and own interface IPs."*
+Reconstructed from the binary's strings + crate set (`nix-0.29.0`, `tokio-vsock-0.7.2`):
+
+**Startup (once, if the flag is set).** process_api enumerates the VM's own interface
+addresses via the `nix` crate's `getifaddrs` (libc `getifaddrs(3)`), unions them with
+loopback (`127.0.0.1`, `::1`) into a "local IP" set, and logs:
+```
+[SECURITY] Blocking connections from local IPs: <comma-separated set>
+```
+On this VM that set is `{127.0.0.1, ::1, 192.0.2.2}` — i.e. loopback **and** eth0's own
+address. The host gateway `192.0.2.1` is *not* in the set, so host-originated traffic passes.
+
+**Per connection — the first gate, before any WS handshake or JWT.** The check runs on
+*both* listeners (the :2024 WS server and the :2025 control server) and in both transports:
+| Transport | What it checks | Reject log | Allowed source |
+|---|---|---|---|
+| TCP (`--addr`, our case) | `peer_addr().ip()` ∈ local-IP set? | `[SECURITY] Rejected WebSocket connection from local IP <ip>` (:2024) / `[CONTROL] [SECURITY] Rejected connection from <ip>` (:2025) | host `192.0.2.1` |
+| vsock (`--listen-vsock-port`) | source **CID** ≠ host CID (2)? | `[SECURITY] Rejecting vsock connection from non-host CID <cid>` / `[CONTROL] [SECURITY] Rejected connection from non-host CID <cid>` | host CID `2` |
+
+If the peer is local (or a non-host CID), the socket is **closed immediately** — before the
+first message is read, so it short-circuits the entire WS upgrade + JWT path (route step 1
+above). Net effect: only the host can drive `:2024` (process creation) or `:2025`
+(`mount_root`, `auth_public_key`, `write_etc_files`, `fs_freeze`/`thaw`, `shutdown`); a bash
+command inside the VM hitting `127.0.0.1:2024` or `192.0.2.2:2025` is dropped at this gate.
+It is a **network-origin** check only — no cryptography — which is why, with the Ed25519 JWT
+fail-open on this cluster (doc 07 §6), it is the effective sole guard on `:2024`.
+
+**Limitation — the local-IP set is a one-time startup snapshot.** It is built once when
+process_api launches and is **not refreshed per connection**, so any address that appears
+*after* startup is treated as non-local and is **not** blocked. Empirically confirmed on this
+VM: adding a secondary IP to `lo` after startup (`ip addr add 10.123.45.6/32 dev lo`) and
+connecting to it was **ACCEPTED** (socket held open awaiting the WS handshake) on **both**
+`:2024` and `:2025`, whereas `127.0.0.1` was rejected with an immediate close. Adding an
+address requires `CAP_NET_ADMIN` — which the VM has (doc 07 §7) — but since in-VM code already
+runs as root, this is a **robustness gap** (the gate assumes a static interface set) rather than
+a brand-new capability. The same applies to bringing up a whole new interface, where the driver
+allows it (the monolithic kernel has no `dummy` module, so secondary IPs on `lo`/`eth0` are the
+practical vector). *(Test scope: only accept-vs-reject was observed; the WS/control protocol was
+not driven through the opened socket.)*
+
+---
+
 ## 9. Process management routes
 
 ```

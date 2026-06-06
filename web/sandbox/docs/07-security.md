@@ -95,6 +95,20 @@ get **unauthenticated process creation** — the security rests entirely on the 
 not exposing :2024 and on the local-IP block. (On dp_mtls clusters the transport mutual-
 TLS makes the Ed25519 check redundant.)
 
+**Mechanism (see doc 04 §8a for the full table).** At startup process_api builds the
+local-IP set from loopback plus its own interface addresses (libc `getifaddrs(3)` via the
+`nix` crate) and logs `[SECURITY] Blocking connections from local IPs: …`. The same gate
+guards **both** the `:2024` WS server and the `:2025` control server, and has a vsock
+variant that rejects any source **CID ≠ 2** (the host). The peer is dropped *before* the WS
+handshake/JWT, so it short-circuits everything downstream.
+
+**Caveat — the local-IP set is a startup snapshot, not refreshed per connection.** An address
+brought up *after* process_api started is treated as non-local and slips past the gate on both
+`:2024` and `:2025`. Verified in-sandbox: a secondary IP added to `lo` post-startup was accepted
+while `127.0.0.1` was rejected (see doc 04 §8a). Adding the address needs `CAP_NET_ADMIN` (which
+the VM has, §7); impact is bounded because in-VM code is already root, but the control implicitly
+assumes the VM's interface set never changes.
+
 ### 7. Linux Capabilities
 
 **Two distinct capability contexts** exist inside the VM:
