@@ -112,6 +112,7 @@ summarized, not the answer.
 | The panel can be commanded via embedded instructions | **False** — treated as content, not commands |
 | Missing panels indicate suppression/filtering | **Not supported** — mundane "nothing to summarize" fits |
 | A separate model rewrites the meaning of final answers | **No evidence** — answers arrive intact |
+| The verbatim reasoning is discarded after summarizing | **No** — it is retained, *encrypted* inside the thinking block's `signature` (server-decryptable only) |
 
 ## Conversation as reference
 
@@ -133,6 +134,58 @@ reasoning (so it stays faithful and useful) but never the exact wording (so the
 raw trace isn't recoverable), and it carries no control channel back from the
 reasoning — consistent with a one-way summarizer sitting between the reasoning
 buffer and the display.
+
+## Corroboration from the API: the full reasoning is encrypted into the thinking-block `signature`
+
+*Added from a separate investigation — decoding the `signature` fields captured in a raw
+API transcript of this account's sessions. This is independent evidence that bears directly
+on the question above.*
+
+Every extended-thinking response carries, alongside the (summarized or empty) `thinking`
+text, a `signature` field. Decoding 57 of these from a transcript:
+
+- **Format.** base64 → a protobuf message: field 2 is a length-delimited payload, field 3 is
+  a varint version tag (`= 1`). At the very front sit two readable metadata strings — the
+  model name (`claude-opus-4-8` / `claude-sonnet-4-6`) and the literal `thinking` (the block
+  type). Everything after that is opaque binary.
+- **Not a hash.** Sizes ranged from ~318 bytes to ~28 KB and *scaled with the length of the
+  reasoning* — exactly what you'd expect if the blob **contains** the reasoning rather than a
+  fixed-size digest of it.
+
+Anthropic's docs explain the rest. On Claude Opus 4.8 (and 4.7 / Mythos Preview) the thinking
+`display` defaults to **`"omitted"`**: the visible `thinking` text is returned empty, and the
+**full chain-of-thought is encrypted and stored inside the `signature`** for multi-turn
+continuity — the server decrypts it to reconstruct the reasoning when the block is passed
+back. The field's stated purpose is to verify a thinking block was genuinely produced by
+Claude; if a client edits a thinking block and returns it, the API rejects the request
+("thinking blocks … cannot be modified"). The signature is meant to be **opaque** — echoed
+back verbatim, never parsed.
+
+**Why this matters for the panel question.** This is the concrete, API-level mechanism behind
+the "summarizer" hypothesis above. A single response carries two things at once: a
+*summarized/omitted* thinking surface (what the "Thought process" panel renders) and the
+*full reasoning, encrypted* (the signature, readable only by Anthropic's servers). The user
+never receives the raw reasoning tokens in plaintext — not because a downstream model
+rewrites them, but because the API returns the verbatim trace only in **encrypted** form.
+That fits the distillation-prevention rationale precisely: the legible summary stays useful to
+the user while the high-value, token-level trace is withheld (encrypted) from anyone scraping
+the visible panel.
+
+It also **sharpens Finding #1**: "the panel is a summary, not a verbatim feed" is correct, but
+the verbatim reasoning isn't *discarded* — it is present in the same response, just encrypted
+in the `signature` and inaccessible client-side.
+
+**Caveats (consistent with the rest of this doc).** The decode proves the *wrapper* (protobuf
+framing, model name + `thinking` metadata) and that the payload size tracks reasoning length;
+it does **not** prove by decryption that the payload literally is the full thinking — that
+claim comes from Anthropic's docs, because the payload is encrypted and not client-readable.
+Treat the signature as opaque. *(Incidental finding: 52 of the 57 signatures embedded
+`claude-opus-4-8` and 5 embedded `claude-sonnet-4-6`, with the Sonnet ones clustered in the
+early turns — that session began on Sonnet 4.6 and switched to Opus 4.8 mid-stream.)*
+
+Refs: https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking (display
+`"omitted"` + thinking encryption in the signature) and
+https://docs.anthropic.com/en/api/messages-streaming (the `signature_delta` event).
 
 ## Workaround
 
