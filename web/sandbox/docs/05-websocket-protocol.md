@@ -48,10 +48,44 @@ Empty first message
   is Ed25519 → **EdDSA**.
 
 Sequence:
-1. Host connects via HTTP Upgrade to WebSocket
-2. First message: **text** — either the auth JWT (verified, EdDSA) or `ProcessConnection` JSON
-3. Next message: **text JSON** — `CreateProcess`
-4. Connection proceeds with bidirectional message exchange
+1. Host opens a **fresh TCP connection + HTTP Upgrade per tool call** (not a persistent WS).
+   Each tool call → new TCP SYN from the host → HTTP `GET / HTTP/1.1` Upgrade.
+2. **HTTP Upgrade headers carry the JWT** in production: `Authorization: Bearer <JWT>`
+   (EdDSA signed by the sandbox gateway). The first-byte branching ('{' / 'e') described
+   above is the fallback for direct connections — on the wiggle cluster it never triggers
+   because process_api is fail-open (no auth key loaded), and the gateway sends via HTTP
+   header anyway.
+3. After the 101 Switching Protocols, the **first WS text message** from the host is the
+   `ProcessConnection` JSON (not the JWT — that was already in the HTTP header):
+   ```json
+   {
+     "process_id": "<uuid>",
+     "create_req": {
+       "name": "/bin/sh", "uid": 0, "gid": 0,
+       "args": ["-c", "<the exact bash command>"],
+       "clear_env": false, "env_vars": {},
+       "timeout": 300,
+       "memory_limit_bytes": null,
+       "reattachable": false,
+       "allow_process_id_reuse": false
+     },
+     "expected_container_name": "container_<REDACTED>--<REDACTED>--<REDACTED>",
+     "accept_zstd": true
+   }
+   ```
+   Note: shell is `/bin/sh` (not bash), **timeout = 300 s** (5 min), env NOT cleared.
+4. process_api responds: `{"ProcessCreatedV2":{"supports_trace":true,"supports_zstd":true}}`
+5. Process runs. On completion, the exact output sequence (confirmed by pcap):
+   ```
+   proc_api→host: "StdErrEOF"          (text, stderr already closed — stderr sent earlier if any)
+   proc_api→host: "ExpectStdOut"        (text, stdout is coming)
+   proc_api→host: [BIN frame]           (binary: 3-byte prefix + raw stdout bytes)
+   proc_api→host: "StdOutEOF"          (text)
+   proc_api→host: {"ProcessExited": 0} (text JSON, exit code)
+   host→proc_api: WS CLOSE 1000        (normal closure)
+   proc_api→host: WS CLOSE 1000
+   ```
+6. TCP FIN exchange — connection fully closed. Next tool call → new TCP SYN (step 1).
 
 ```
 First message should be text json CreateProcess

@@ -87,6 +87,7 @@ Live process / kernel / network / device state.
 | `dsdt-decompiled.dsl` | Full `iasl` decompile of the DSDT (1097 lines): VGEN/VCLK/GED devices, GED `_EVT` event routing, PCIe host bridge `_CRS` address map, 32 hotplug slots. |
 | `virtio-pci-caps.txt` | virtio-1.0 PCI capability layout + BAR map for all 6 devices (common/isr/device/notify/MSI-X offsets, vector counts). |
 | `host-os-probe.txt` | Host-OS investigation: KVM feature set → host kernel ≥5.8, `ptp_kvm` host-clock channel, vmclock `VCLK` structure + VM-Generation-ID, AWS/Amazon-Linux inference. |
+| `ws-capture.pcap` | Live pcap of the host↔process_api WebSocket exchange (setsid tcpdump on eth0:2024). Contains the full HTTP Upgrade (with JWT in `Authorization: Bearer`), unmasked ProcessConnection JSON, and the StdErrEOF/ExpectStdOut/StdOutEOF/ProcessExited message sequence. See doc 05. |
 | `mount-output.txt`, `proc-mounts.txt` | Mount table (ext4 root, 3 squashfs, 4 rclone FUSE mounts). |
 | `mnt-file-listing.txt` | Recursive listing under `/mnt`. |
 | `rclone-vfsmeta.txt` | rclone VFS cache layout under `/dev/shm`. |

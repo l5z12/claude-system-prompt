@@ -97,14 +97,45 @@ TLS makes the Ed25519 check redundant.)
 
 ### 7. Linux Capabilities
 
-```
-CapEff: 0x000001fffeffffff
-```
+**Two distinct capability contexts** exist inside the VM:
 
-Only `CAP_SYS_RESOURCE` is missing. All others are present. This is **not a security mechanism** — full capabilities are intentional because:
-- The VM boundary provides the real isolation
-- Restricting caps inside the VM would just complicate legitimate operations
-- Capabilities are meaningless against a Firecracker escape anyway
+| Set | process\_api (PID 1) | tool-execution bash |
+|---|---|---|
+| CapPrm | `0x000001ffffffffff` (all 41) | `0x000001fffeffffff` |
+| CapEff | `0x000001ffffffffff` | `0x000001fffeffffff` |
+| **CapBnd** | **`0x000001fffeffffff`** | **`0x000001fffeffffff`** |
+| CapInh | `0x0000000000000000` | `0x0000000000000000` |
+| CapAmb | `0x0000000000000000` | `0x0000000000000000` |
+| NoNewPrivs | 0 | 0 |
+| Seccomp | 0 | 0 |
+
+The **single missing capability is `CAP_SYS_RESOURCE` (bit 24)**. The design is deliberate:
+
+process\_api retains `sys_resource` in its own Prm/Eff (it needs it to set rlimits and manage
+cgroups), but it calls `prctl(PR_CAPBSET_DROP, 24)` on itself during initialisation,
+permanently removing the capability from its bounding set. The bounding set is inherited
+downward and can never be re-elevated; every child process — including all tool-execution
+shells — is permanently excluded from `sys_resource`. (Confirmed by binary RE: see doc 04 §3.7.)
+
+**Practical impact of the missing capability (empirically demonstrated):**
+- `fcntl(F_SETPIPE_SZ)` above `/proc/sys/fs/pipe-max-size` (1 MB) → `EPERM`
+- `setrlimit()` to raise a hard rlimit → `EPERM`
+- Cannot access ext4 root-reserved blocks; cannot exceed RLIMIT_NPROC.
+
+**Privilege escalation surface — all standard paths verified as closed:**
+
+| Path | Why it fails |
+|---|---|
+| `capset()` | Binary has **zero `capset` syscall sites**; and CapPrm already excludes `sys_resource` so it could not be raised even if called |
+| SUID binaries (su, mount, newgrp, …) | Already uid 0; SUID does not restore the bounding set |
+| File capabilities | Searched the entire rootfs — no binary carries `cap_sys_resource` in its file-cap set |
+| Ambient capabilities | Cannot be raised above CapPrm |
+| User namespaces | Grant full caps *within the namespace* but `sys_resource` exercised against real kernel objects checks the initial-namespace bounding set |
+| Kernel exploit / PID-1 code injection | Not attempted — genuine security boundary |
+
+`CAP_SYS_RESOURCE` is **the one deliberate capability-level security control** inside the VM.
+All other caps are present intentionally — the real isolation is the Firecracker boundary, and
+restricting unnecessary caps would only complicate legitimate tool operations.
 
 ### 8. No Seccomp
 
@@ -129,31 +160,64 @@ Only `CAP_SYS_RESOURCE` is missing. All others are present. This is **not a secu
 
 ## What Claude Can Do Inside the Sandbox
 
-- Run arbitrary code as root with nearly all capabilities
-- **Freeze its own root filesystem**: `ioctl(open("/"), FIFREEZE)` succeeds from inside
-  (confirmed live). Writes to the frozen ext4 then block until `FITHAW` — a self-inflicted
-  local DoS of the VM's own disk writes, with no impact beyond the isolated VM.
-- Read and modify any file on the root ext4 filesystem
-- Make network requests to allowlisted domains
-- Access `/proc/mem` of other processes (including PID 1)
-- Read squashfs skill volumes
-- Write to `/mnt/user-data/outputs` (persisted to filestore)
+- **Run arbitrary code as root** with 40 of 41 Linux capabilities (all except `CAP_SYS_RESOURCE`; see §7)
+- **Freeze the root filesystem**: `ioctl(FIFREEZE)` succeeds — a self-inflicted local DoS of disk
+  writes until `FITHAW`; no impact beyond the isolated VM
+- **Read/write any file** on the writable root ext4 (`/dev/vda`)
+- **Make outbound network requests** to the egress-proxy allowlist (pypi, github, npm,
+  `api.anthropic.com`, Ubuntu archives, adobe.io …)
+- **Install Ubuntu packages** via `apt-get` — `archive.ubuntu.com` and `security.ubuntu.com` are
+  allowlisted; third-party apt repos (e.g. NodeSource) return 403
+- **Read the ACPI tables** in `/sys/firmware/acpi/tables/` and decompile them with `iasl`
+- **Read low-1 MB physical memory** via `/dev/mem` (STRICT_DEVMEM permits access to the reserved
+  region below 1 MB — used to read the vmclock `VCLK` structure at `0xDE000` and the VM
+  Generation ID at `0xDFFF0`)
+- **Read MSRs** via `/dev/cpu/0/msr` — the device is present (built into the kernel); KVM masks
+  platform values (base-ratio returns 0, microcode returns 1, turbo-ratio raises #GP)
+- **Passively sniff the cleartext host↔process_api WebSocket traffic** on `eth0` using an
+  `AF_PACKET` raw socket (or `setsid tcpdump`) — confirmed by live capture: the JWT in the HTTP
+  Upgrade `Authorization:` header, the full unmasked `ProcessConnection` JSON, and per-call
+  stdout/ProcessExited frames are all visible in the pcap (see `artifacts/runtime/ws-capture.pcap`)
+- **Read squashfs skill/tool volumes** (`/dev/vdb–vdd`)
+- **Write to `/mnt/user-data/outputs`** (persisted via rclone-filestore to the session's cloud storage)
 
 ## What Claude Cannot Do
 
-- Escape the Firecracker VM boundary (without a hypervisor CVE)
-- Reach non-allowlisted domains
-- Connect to the WebSocket server on port 2024 (blocked for local connections)
-- Access other conversations' filesystems (separate filesystem_id per session)
-- Recover the initramfs content (zeroed by init_on_free=1)
-- Load kernel modules (`nomodule` cmdline)
+- **Escape the Firecracker VM boundary** — only a hypervisor CVE would allow this; not attempted
+- **Reach non-allowlisted domains** — egress proxy returns `x-deny-reason: host_not_allowed`
+- **Reach the host machine** — the gateway (192.0.2.1) RSTs all probed TCP ports; vsock has no
+  assigned CID; IMDS (169.254.169.254) is intercepted and blocked by the egress proxy
+- **Connect to process_api's ports from inside the VM** — `:2024` enforces
+  `--block-local-connections`; `:2025` also refuses local connections; and even if a connection
+  were established, the auth JWT is signed by a key whose private half never enters the VM
+- **Gain `CAP_SYS_RESOURCE`** — permanently excluded from the bounding set (§7); empirically
+  confirmed: pipe-size-cap and hard-rlimit calls both return `EPERM`
+- **Read arbitrary kernel RAM** — STRICT_DEVMEM blocks `/dev/mem` for System RAM; `/proc/kallsyms`
+  omits data symbols (no KALLSYMS_ALL), so the KASLR direct-map base is inaccessible, making
+  `/proc/kcore` translation impractical (doc 07 §2)
+- **Load kernel modules** — kernel built with `nomodule`; `/proc/modules` is empty
+- **Access EC2 instance metadata (IMDS)** — 169.254.169.254 is proxy-blocked
+- **Recover initramfs content** — zeroed by `init_on_free=1` before userspace starts
+- **Access other sessions' filesystems** — separate `filesystem_id` claim per session in the
+  rclone-filestore JWT; Anthropic's backend enforces the scope
 
 ## Token Lifecycle Summary
 
 ```
-Host orchestration → initramfs container.env → process_api reads → 
-writes to rclone config → spawns rclone → scrubs config → 
-token lives in rclone heap → session ends → VM destroyed
-```
+Host sandbox-gateway
+  → HTTP Upgrade to process_api :2024
+      Authorization: Bearer <EdDSA JWT, 60-min, iss=sandbox-gateway>
+  → process_api verifies JWT (fail-open on wiggle cluster — no key loaded)
+  → process_api receives ProcessConnection JSON
+      { process_id, create_req: {name:"/bin/sh", uid:0, timeout:300, …},
+        expected_container_name, accept_zstd }
+  → spawns /bin/sh -c "<tool command>" in its cgroup
+  → stdout/stderr collected, sent as WS frames after process exits
+  → WS CLOSE 1000 — TCP connection torn down
+  → next tool call = new TCP SYN from host
 
-The JWT in rclone's heap (ES256, 6h TTL) is the only persistent credential. It's session-scoped and can't be used after the session ends.
+Filestore credential (separate path):
+  POST /mount_root → rclone-filestore receives ES256 JWT (6-h TTL,
+  session-scoped filesystem_id) → stored in rclone heap, scrubbed
+  from configs → used for every /mnt/user-data read/write
+```

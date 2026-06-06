@@ -128,6 +128,19 @@ Ubuntu's own repos** (e.g. `apt-get install acpica-tools` succeeds as root via t
 using the installed Anthropic egress CAs). Third-party apt repos are still blocked —
 `deb.nodesource.com` returns `403 Forbidden`.
 
+## Host→VM connection routing (inbound)
+
+The host's connection TO `process_api` (:2024) flows in the reverse direction and was captured
+by sniffing eth0. The HTTP Upgrade headers reveal the full path:
+
+- **Ultimate source:** `via: 1.1 google` — the request traverses Google's network backbone.
+- **Anthropic internal proxies:** `x-forwarded-for: 10.5.64.2, 10.5.0.3` — two internal hops.
+- **Internal service endpoint:** `x-envoy-original-dst-host: 10.17.217.200:14100` — the actual
+  Anthropic sandbox API service, fronted by an Envoy proxy before reaching the VM's `192.0.2.2`.
+- **Host header:** `sandbox.api.anthropic.com` — the logical service name.
+- **Protocol:** HTTP/1.1 WebSocket Upgrade (cleartext on the VM side; `x-forwarded-proto: https`
+  confirms the external leg is HTTPS). See `../artifacts/runtime/ws-capture.pcap`.
+
 **169.254.169.254 (EC2 IMDS):** requests are **intercepted by the egress proxy** and return
 `Destination IP is in a private/reserved range` — no cloud metadata (instance type, IAM
 credentials) is accessible to the VM. Anthropic explicitly blocks IMDS access.

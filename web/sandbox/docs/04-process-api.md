@@ -166,9 +166,27 @@ proceeding — so no tool can run against a half-mounted filesystem.
 [INIT] Dropped CAP_SYS_RESOURCE from bounding set
 [INIT] FATAL: Failed to drop CAP_SYS_RESOURCE: …
 ```
-process_api **deliberately drops `CAP_SYS_RESOURCE` from the bounding set** — which is
-exactly why the captured `CapEff` has *only* that bit missing (see §11). Dropping it means
-even root inside the VM cannot bypass cgroup/rlimit resource limits.
+process_api **deliberately drops `CAP_SYS_RESOURCE` from its own bounding set** via
+`prctl(PR_CAPBSET_DROP, 24)` during init. Binary RE confirms:
+
+- A **prctl dispatch wrapper** exists at ~`0x368f80`; it loads up to 5 args from a caller-
+  supplied struct and issues `mov eax, 0x9d; syscall` (prctl = syscall 157). Three call sites.
+- **Zero `capset()` syscall sites** in the binary — all capability management is through
+  `prctl`, never the raw `capset` syscall.
+
+The resulting capability split is intentional:
+
+| | process\_api itself | every child exec |
+|---|---|---|
+| CapPrm/CapEff | has `sys_resource` | does not |
+| **CapBnd** | **does NOT** have it | does not |
+
+process_api retains `sys_resource` in its permitted/effective sets (it needs it to enforce
+cgroup resource limits and use ext4 reserved blocks), but since it dropped it from its own
+bounding set, the bounding set it inherits to children also lacks it. The bounding set is a
+one-way ratchet — once dropped, no exec in the lineage can ever restore it (confirmed by
+empirical tests: `F_SETPIPE_SZ` above `pipe-max-size` and hard-rlimit raises both return
+`EPERM` in the tool shell). Full analysis in `07-security.md §7`.
 
 ### 3.8 Page cache + token scrub + status
 ```
@@ -394,6 +412,13 @@ cpu_timeout  duration CPU-time limit (falls back to wall-clock if unenforceable)
 reattachable bool     survive WS disconnects
 allow_process_id_reuse bool
 ```
+**Empirically confirmed values (from pcap of live exchange):**
+- `name = "/bin/sh"` (not bash — explains why `disown` is unavailable in tool sessions)
+- `timeout = 300 s` (5 minutes per tool call — the command-level limit, separate from the
+  30 s OOM-kill window for runaway processes)
+- `clear_env = false` (env fully inherited from process_api's environment)
+- `memory_limit_bytes = null` (no per-process byte cap beyond the cgroup)
+- Top-level fields also include `expected_container_name` (security check) and `accept_zstd`
 Internals: a `ProcController`/`ProcHandle` with channels (`exit_status_tx/rx`,
 `oom_killed_tx/rx`, `stop_waiting_tx/rx`); fork/exec; move into the session cgroup; record
 `ProcessInfo { pid, start_time, start_wallclock_micros, cmd_summary, stdin_bytes,
