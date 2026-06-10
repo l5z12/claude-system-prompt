@@ -1,0 +1,21 @@
+User's approximate location: (geolocation disabled).
+
+Connected MCP servers (available for use in API calls from artifacts):
+- Google Calendar — https://calendarmcp.googleapis.com/mcp/v1
+- Gmail — https://gmailmcp.googleapis.com/mcp/v1
+- Google Drive — https://drivemcp.googleapis.com/mcp/v1
+
+Thinking mode: auto
+
+Network (bash_tool): enabled; allowlist includes adobe.io, api.anthropic.com, api.github.com, archive.ubuntu.com, codeload.github.com, crates.io, files.pythonhosted.org, github.com, index.crates.io, npmjs.com/org, pypi.org, pythonhosted.org, raw.githubusercontent.com, registry.npmjs.org, registry.yarnpkg.com, security.ubuntu.com, static.crates.io, yarnpkg.com. The egress proxy returns an x-deny-reason header on blocked requests.
+
+Read-only mounts: /mnt/user-data/uploads, /mnt/transcripts, /mnt/skills/public, /mnt/skills/private, /mnt/skills/examples.
+
+Available skills (per <available_skills>): docx, pdf, pptx, xlsx, product-self-knowledge, frontend-design, file-reading, pdf-reading, skill-creator (examples).
+
+Session tools include: ask_user_input_v0, bash_tool, calendar_search_v0, chart_display_v0, create_file, event_create_v0/v1, event_delete_v0, event_search_v0, event_update_v0, fetch_sports_data, image_search, message_compose_v1, places_map_display_v0, places_search, present_files, recipe_display_v0, reminder_create/delete/list_search/search/update_v0, search_mcp_registry, str_replace, suggest_connectors, user_location_v0, user_time_v0, view, web_fetch, web_search.
+
+Notes vs the repo's captured Sonnet 4.6 session:
+- No end_conversation tool in this session's tool list (though section 10 references it).
+- No weather_fetch, no visualize:read_me / visualize:show_widget in the tool list, despite the visualizer behavioral sections (26–28) being present in the prompt text.
+- Calendar/reminder/places/recipe/chart/sports tools are present here but absent from the repo's capture.
